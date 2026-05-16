@@ -1,0 +1,108 @@
+# =============================================================================
+# Archer ROS — Central Configuration
+# =============================================================================
+# All tunable parameters live here. Edit this file to customise behaviour
+# without touching source code.
+
+# Project identity
+project:
+  name: Archer ROS
+  version: "1.0.0"
+  persona: "Archer"  # spoken name used in TTS greetings
+
+# ---------------------------------------------------------------------------
+# STT — Whisper (fully local, no API key required)
+# ---------------------------------------------------------------------------
+whisper:
+  # Model size trade-off: tiny(39M) | base(74M) | small(244M) | medium(769M) | large(1.5G)
+  # "base" is recommended for real-time on CPU; "small" for better accuracy
+  model: base
+  # "cpu" or "cuda" (set cuda if you have an NVIDIA GPU)
+  device: cpu
+  # Microphone capture settings
+  sample_rate: 16000
+  channels: 1
+  # Maximum recording duration per utterance (seconds)
+  max_record_seconds: 10
+  # Silence threshold to stop recording (seconds of quiet)
+  silence_timeout: 1.5
+
+# ---------------------------------------------------------------------------
+# LLM — Ollama (fully local REST API)
+# ---------------------------------------------------------------------------
+ollama:
+  base_url: "http://localhost:11434"
+  # llama3.2:1b — lighter model for systems with limited RAM.
+  # Use llama3.1:8b if you have at least 8GB RAM available.
+  model: "llama3.2:1b"
+  # Request timeout in seconds.
+  # First request takes 30-60s while the model loads into RAM — be patient.
+  # Subsequent requests are much faster (2-5s) once the model is warm.
+  timeout: 120
+  # Temperature: lower = more deterministic (better for command parsing)
+  temperature: 0.3
+  # Keep-alive: how long Ollama keeps model in VRAM after last request
+  keep_alive: "5m"
+
+# ---------------------------------------------------------------------------
+# TTS — Piper (fully local neural TTS)
+# ---------------------------------------------------------------------------
+piper:
+  # Path to the .onnx voice model file.
+  # Download from: https://github.com/rhasspy/piper/releases
+  # Recommended: en_US-lessac-medium (good quality, reasonable speed)
+  model_path: "~/piper-models/en_US-lessac-medium.onnx"
+  # Speaker ID (0 for single-speaker models)
+  speaker_id: 0
+  # Output sample rate (must match the model)
+  sample_rate: 22050
+
+# ---------------------------------------------------------------------------
+# ROS2 Bridge
+# ---------------------------------------------------------------------------
+ros2:
+  # Topic on which the bridge listens for JSON command strings
+  command_topic: "/archer/command"
+  # Topic on which Twist messages are published
+  cmd_vel_topic: "/cmd_vel"
+  # Enable Nav2 goal publishing (requires Nav2 stack running)
+  use_nav2: false
+  nav2_goal_topic: "/move_base_simple/goal"
+
+# ---------------------------------------------------------------------------
+# Safety Limits  ← DO NOT increase without physical testing
+# ---------------------------------------------------------------------------
+safety:
+  # Maximum linear velocity (m/s) — TurtleBot3 max is 0.26 m/s
+  max_linear: 0.22
+  # Maximum angular velocity (rad/s) — TurtleBot3 max is 1.82 rad/s
+  max_angular: 1.0
+  # Watchdog: publish zero velocity if no command received within N seconds
+  watchdog_timeout: 2.0
+  # Commands from the LLM are ALWAYS validated before publishing
+  require_validation: true
+
+# ---------------------------------------------------------------------------
+# OpenClaw — Optional advanced AI execution gateway
+# DISABLED by default. Set enabled: true when OpenClaw is running locally.
+# ---------------------------------------------------------------------------
+openclaw:
+  # Master switch — when false, OpenClaw is never contacted
+  enabled: false
+  url: "http://localhost:33635"
+  request_timeout: 15
+  # Task categories that should be routed to OpenClaw (when enabled)
+  # Robot control tasks are NEVER routed to OpenClaw regardless of this list
+  task_routes:
+    - coding
+    - planning
+    - email
+    - search
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: INFO  # DEBUG | INFO | WARNING | ERROR
+  log_to_file: true
+  log_dir: "logs/"

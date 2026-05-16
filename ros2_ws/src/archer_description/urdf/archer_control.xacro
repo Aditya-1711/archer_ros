@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <ros2_control name="GazeboSimSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+
+    <!-- Torso Joints -->
+    <joint name="jL5S1_roty">
+      <command_interface name="position"><param name="min">-0.5</param><param name="max">1.5</param></command_interface>
+      <state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="jT9T8_roty">
+      <command_interface name="position"><param name="min">-0.2</param><param name="max">0.7</param></command_interface>
+      <state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="jT1C7_roty">
+      <command_interface name="position"><param name="min">-0.5</param><param name="max">0.5</param></command_interface>
+      <state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+
+    <!-- Leg Joints -->
+    <xacro:macro name="leg_control" params="side">
+      <joint name="j${side}Hip_roty">
+        <command_interface name="position"><param name="min">-1.5</param><param name="max">0.5</param></command_interface>
+        <state_interface name="position"/><state_interface name="velocity"/>
+      </joint>
+      <joint name="j${side}Knee_roty">
+        <command_interface name="position"><param name="min">0</param><param name="max">2.0</param></command_interface>
+        <state_interface name="position"/><state_interface name="velocity"/>
+      </joint>
+    </xacro:macro>
+
+    <xacro:leg_control side="Left"/><xacro:leg_control side="Right"/>
+
+    <!-- Arm Joints -->
+    <xacro:macro name="arm_control" params="side">
+      <joint name="j${side}Shoulder_roty">
+        <command_interface name="position"><param name="min">-1.5</param><param name="max">1.5</param></command_interface>
+        <state_interface name="position"/><state_interface name="velocity"/>
+      </joint>
+      <joint name="j${side}Elbow_roty">
+        <command_interface name="position"><param name="min">-2.0</param><param name="max">0</param></command_interface>
+        <state_interface name="position"/><state_interface name="velocity"/>
+      </joint>
+    </xacro:macro>
+
+    <xacro:arm_control side="Left"/><xacro:arm_control side="Right"/>
+
+  </ros2_control>
+
+  <gazebo>
+    <plugin filename="libgz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find archer_description)/config/controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+</robot>

@@ -1,0 +1,25 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100 # Hz
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    forward_position_controller:
+      type: forward_command_controller/ForwardCommandController
+
+forward_position_controller:
+  ros__parameters:
+    joints:
+      - jL5S1_roty
+      - jT9T8_roty
+      - jT1C7_roty
+      - jLeftHip_roty
+      - jLeftKnee_roty
+      - jRightHip_roty
+      - jRightKnee_roty
+      - jLeftShoulder_roty
+      - jLeftElbow_roty
+      - jRightShoulder_roty
+      - jRightElbow_roty
+    interface_name: position

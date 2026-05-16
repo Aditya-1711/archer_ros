@@ -1,0 +1,37 @@
+# =============================================================================
+# Archer ROS — Python AI Layer Dependencies
+# =============================================================================
+# These are for the AI pipeline ONLY (runs on Windows / macOS / Linux host).
+# ROS2 dependencies (rclpy, geometry_msgs, etc.) are installed inside Docker.
+#
+# Install: pip install -r requirements.txt
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# STT — Whisper
+# ---------------------------------------------------------------------------
+openai-whisper>=20231117       # Local speech-to-text (pulls torch automatically)
+sounddevice>=0.4.6             # Microphone capture
+soundfile>=0.12.1              # WAV file I/O for TTS playback
+numpy>=1.24                    # Audio processing
+
+# ---------------------------------------------------------------------------
+# LLM — Ollama (talks to local daemon, no SDK needed)
+# ---------------------------------------------------------------------------
+requests>=2.31                 # HTTP client for Ollama REST API
+
+# ---------------------------------------------------------------------------
+# TTS — Piper (called via subprocess, no Python dep)
+# sounddevice + soundfile above cover playback
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Shared utilities
+# ---------------------------------------------------------------------------
+pyyaml>=6.0                    # Config loading (settings.yaml)
+
+# ---------------------------------------------------------------------------
+# Development / testing
+# ---------------------------------------------------------------------------
+pytest>=7.4
+pytest-timeout>=2.1

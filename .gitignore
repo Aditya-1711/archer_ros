@@ -1,0 +1,34 @@
+# ROS2 / Colcon
+**/build/
+**/install/
+**/log/
+**/install/
+**/build/
+**/log/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.env
+
+# Logs
+logs/
+*.log
+
+# Simulation temporary files
+simulation/last_cmd.yaml
+simulation/status.json
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

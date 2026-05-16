@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <gazebo>
+
+    <!-- Joint State Publisher (Fixes No Transform error) -->
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <topic>joint_states</topic>
+      <joint_name>left_wheel_joint</joint_name>
+      <joint_name>right_wheel_joint</joint_name>
+    </plugin>
+
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+      <wheel_separation>0.2</wheel_separation>
+      <wheel_radius>0.05</wheel_radius>
+      <max_linear_acceleration>0.5</max_linear_acceleration>
+      <max_angular_acceleration>1.0</max_angular_acceleration>
+      <max_velocity>2.0</max_velocity>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+    </plugin>
+  </gazebo>
+
+  <!-- Sensors Definition -->
+  <gazebo reference="Head">
+    <sensor name="head_camera" type="camera">
+      <pose>0.2 0 0.1 0 0 0</pose>
+      <always_on>1</always_on>
+      <update_rate>30</update_rate>
+      <visualize>true</visualize>
+      <topic>/archer/camera/image_raw</topic>
+      <camera>
+        <horizontal_fov>1.047</horizontal_fov>
+        <image><width>640</width><height>480</height></image>
+        <clip><near>0.1</near><far>100</far></clip>
+      </camera>
+    </sensor>
+  </gazebo>
+
+  <!-- Physics Properties -->
+  <gazebo reference="left_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2>
+    <kp>1000000.0</kp><kd>10.0</kd>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+  <gazebo reference="right_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2>
+    <kp>1000000.0</kp><kd>10.0</kd>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+
+</robot>
