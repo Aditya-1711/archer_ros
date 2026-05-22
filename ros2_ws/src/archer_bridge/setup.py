@@ -22,6 +22,7 @@ setup(
         "console_scripts": [
             # ros2 run archer_bridge bridge_node
             "bridge_node = archer_bridge.bridge_node:main",
+            "depth_to_pointcloud = archer_bridge.depth_to_pointcloud:main",
         ],
     },
 )

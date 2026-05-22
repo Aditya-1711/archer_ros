@@ -1,6 +1,41 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+  <!-- ========================================================================= -->
+  <!-- 1X Neo Premium Palette (Domestic Humanoid Design)                          -->
+  <!-- ========================================================================= -->
+
+  <!-- Premium space-grey knit jumpsuit texture representation -->
+  <material name="neo_knit_gray">
+    <color rgba="0.36 0.36 0.38 1.0"/>
+  </material>
+
+  <!-- Dark charcoal for underlying joints and compliant rubberized covers -->
+  <material name="neo_matte_black">
+    <color rgba="0.08 0.08 0.09 1.0"/>
+  </material>
+
+  <!-- Deep glossy black for the head visor faceplate -->
+  <material name="neo_visor_black">
+    <color rgba="0.015 0.015 0.02 1.0"/>
+  </material>
+
+  <!-- High-contrast pure white for the signature sneakers and chest grilles -->
+  <material name="neo_sneaker_white">
+    <color rgba="0.96 0.96 0.97 1.0"/>
+  </material>
+
+  <!-- Friendly amber-orange status LED glow for the ears and chest rings -->
+  <material name="neo_led_glow">
+    <color rgba="0.96 0.48 0.08 1.0"/>
+  </material>
+
+  <!-- Completely transparent helper material -->
+  <material name="transparent">
+    <color rgba="0.0 0.0 0.0 0.0"/>
+  </material>
+
+  <!-- Basic blue and white kept for compatibility if needed -->
   <material name="blue">
     <color rgba="0.0 0.0 0.8 1.0"/>
   </material>
@@ -15,10 +50,6 @@
 
   <material name="black">
     <color rgba="0.0 0.0 0.0 1.0"/>
-  </material>
-
-  <material name="red">
-    <color rgba="0.8 0.0 0.0 1.0"/>
   </material>
 
 </robot>

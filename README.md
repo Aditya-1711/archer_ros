@@ -42,8 +42,22 @@ Archer's AI system (`core/main.py`) communicates via the shared volume `simulati
 *   **Gazebo Harmonic** will open showing Archer in the house.
 *   **RViz** will open showing Archer's "AI Vision" (Camera feed & LiDAR map).
 
-### 3. Launch the AI Core
-Open a **second** PowerShell terminal and run:
+### 3. Launch the Web Control Dashboard (NEW)
+Open a **second** terminal and run:
+```powershell
+python dashboard/server.py
+```
+This launches our high-performance **Tactical Web Dashboard** at `http://localhost:8080`!
+
+Through this premium glassmorphism interface, you can:
+*   **Interact with Llama**: Send commands to the AI core and view responses.
+*   **2D Real-time Map**: Watch Archer's precise coordinate position ($x, y$) and yaw heading update dynamically on a floorplan vector radar.
+*   **Tactile D-Pad**: Manually drive Archer around the map with safe, auto-stopping velocity commands.
+*   **Speed Limits**: Choose between Slow, Normal, Fast, and Full speed settings.
+*   **Quick Spatial Nav**: Single-click on any room card (Kitchen, Bedroom, Living Room) to route the humanoid instantly!
+
+### 4. Launch the AI CLI Core (Alternative)
+If you prefer a text terminal command line:
 ```powershell
 # Start the Archer Brain
 python core/main.py --cli

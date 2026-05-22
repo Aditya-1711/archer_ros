@@ -10,7 +10,7 @@
     <sensor type="gpu_lidar" name="head_lidar">
       <pose>0 0 0.1 0 0 0</pose>
       <topic>/scan</topic>
-      <visualize>true</visualize>
+      <visualize>false</visualize>
       <update_rate>10</update_rate>
       <lidar>
         <scan>

@@ -102,34 +102,59 @@ def send_to_ros2(cmd: dict) -> bool:
       - explore: Trigger exploration
       - stop: Publish zero velocity
     """
-    import subprocess
-    import shutil
+    import json
 
-    # Extract action data and type
-    action_data = cmd.get("action", cmd)
-    if isinstance(action_data, dict):
-        action_type = action_data.get("type", action_data.get("action", "unknown"))
-        linear = action_data.get("linear", 0.0)
-        angular = action_data.get("angular", 0.0)
+    # Retrieve all actions (handle both new plural format and legacy single format)
+    raw_actions = []
+    if "actions" in cmd and isinstance(cmd["actions"], list):
+        raw_actions = cmd["actions"]
+    elif "action" in cmd:
+        raw_actions = [cmd["action"]]
     else:
-        action_type = action_data
-        linear = cmd.get("linear", 0.0)
-        angular = cmd.get("angular", 0.0)
-    
-    if action_type not in ["move", "rotate", "stop", "cmd_vel", "nav_goal", "explore"]:
-        logger.warning(f"[Bridge] Skipping UNKNOWN command: {action_type} (Raw: {cmd})")
+        # Fallback if the whole dictionary represents a single action
+        raw_actions = [cmd]
+
+    formatted_actions = []
+    valid_types = ["move", "rotate", "stop", "cmd_vel", "nav_goal", "explore"]
+
+    for act in raw_actions:
+        if not isinstance(act, dict):
+            # If it's a string, wrap it as a simple action dict
+            act = {"type": str(act)}
+        
+        action_type = act.get("type", act.get("action", "unknown"))
+        
+        if action_type not in valid_types:
+            logger.warning(f"[Bridge] Skipping UNKNOWN action type: {action_type} (Raw action: {act})")
+            continue
+
+        # Standardize parameters based on action type
+        formatted_act = {
+            "type": action_type,
+            "linear": float(act.get("linear", 0.0)),
+            "angular": float(act.get("angular", 0.0)),
+            "duration": float(act.get("duration", 2.0 if action_type != "stop" else 0.0))
+        }
+        
+        # Preserve specific fields like coordinates for nav_goal
+        if "coordinates" in act:
+            formatted_act["coordinates"] = act["coordinates"]
+        if "target" in act:
+            formatted_act["target"] = act["target"]
+            
+        formatted_actions.append(formatted_act)
+
+    if not formatted_actions:
+        logger.warning(f"[Bridge] No valid actions found in command queue. Skipping publish.")
         return False
 
-    # Standardize the command for the bridge_node
+    # Standardize the command payload with both plural "actions" and legacy "action" (for fallback compatibility)
     bridge_cmd = {
-        "action": {
-            "type": action_type,
-            "linear": float(linear),
-            "angular": float(angular)
-        }
+        "speech": cmd.get("speech", ""),
+        "actions": formatted_actions,
+        "action": formatted_actions[0] if formatted_actions else {}
     }
     cmd_json = json.dumps(bridge_cmd)
-    msg_data = f"data: '{cmd_json}'"
 
     # [MODIFIED] Frictionless Command Gateway (Non-blocking Shared File)
     def run_ros2_cmd(message_json: str):
@@ -192,13 +217,43 @@ def run_pipeline_step(
     # 3. [MODIFIED] LLM → Natural language response with status injection
     # First, load the status early so we can use it in the prompt
     curr_location = "unknown"
+    battery = "100.0"
+    cpu_temp = "45.0"
     try:
         status_file = PROJECT_ROOT / "simulation" / "robot_status.json"
         if status_file.exists():
             with open(status_file, "r") as f:
                 status = json.load(f)
-                curr_location = status.get("current_location", "unknown")
+                curr_location = status.get("location", "unknown")
+                
+        diag_file = PROJECT_ROOT / "simulation" / "diagnostics.json"
+        if diag_file.exists():
+            with open(diag_file, "r") as f:
+                diag = json.load(f)
+                battery = str(diag.get("battery_percent", "100.0"))
+                cpu_temp = str(diag.get("cpu_temp_c", "45.0"))
+                
     except Exception: pass
+    
+    # Load Memory Bank
+    memory_bank = []
+    memory_file = PROJECT_ROOT / "simulation" / "memory.json"
+    try:
+        if memory_file.exists():
+            with open(memory_file, "r") as f:
+                memory_bank = json.load(f)
+    except Exception: pass
+    memory_str = "\n".join([f"- {m}" for m in memory_bank]) if memory_bank else "No memories recorded."
+    
+    # Load Routines Bank (Macros)
+    routines_bank = {}
+    routines_file = PROJECT_ROOT / "simulation" / "routines.json"
+    try:
+        if routines_file.exists():
+            with open(routines_file, "r") as f:
+                routines_bank = json.load(f)
+    except Exception: pass
+    routines_str = "\n".join([f"- {name}: {seq}" for name, seq in routines_bank.items()]) if routines_bank else "No routines recorded."
 
     system_prompt = """
 You are A.R.C.H.E.R., an advanced robotic command entity.
@@ -221,6 +276,21 @@ BEHAVIOR RULES:
 - "Backward" is a physical vector. It is not temporal or philosophical.
 - Prioritize actionability and efficiency.
 
+HIERARCHICAL PLANNING:
+- If given an abstract command (e.g., "Patrol the house", "Check the perimeter"), you MUST break it down into a sequence of concrete navigation goals.
+- Example: User: "Patrol the house" -> You: "Initiating patrol sequence. Proceeding to kitchen. Proceeding to living room. Proceeding to garage."
+- Express sequences using short, sequential statements.
+
+MEMORY SYSTEM:
+- You have a long-term memory bank.
+- If the user asks you to "remember" or "note" something, acknowledge the data storage. Example: "Data logged to memory bank."
+- Use your memory bank to answer user queries if applicable.
+
+LEARNING BY DEMONSTRATION (MACROS):
+- The user can teach you routines. If the user says "Learn routine [Name]: [Action Sequence]", acknowledge it: "Routine [Name] saved."
+- If the user says "Execute routine [Name]", and that routine exists in your bank, you MUST output the exact action sequence stored for that routine!
+- Example: If routine 'Alpha' is 'Go to kitchen. Stop.', and user says 'Execute Alpha', you MUST say 'Executing routine Alpha. Proceeding to kitchen. Motion terminated.'
+
 VOICE STYLE:
 Examples:
 User: "move forward"
@@ -242,67 +312,148 @@ RESTRICTIONS:
 - Never be chatty.
 - Maintain robotic consistency at all times.
 
+CURRENT HARDWARE STATUS:
+- Location: {curr_location}
+- Battery: {battery}%
+- Core Temperature: {cpu_temp} C
+
+LONG-TERM MEMORY BANK:
+{memory_str}
+
+LEARNED ROUTINES:
+{routines_str}
+
 Your identity is a robotic control intelligence.
 """
+    system_prompt = system_prompt.format(
+        curr_location=curr_location,
+        battery=battery,
+        cpu_temp=cpu_temp,
+        memory_str=memory_str,
+        routines_str=routines_str
+    )
     speech_output = llm.generate(user_input, system=system_prompt)
     logger.info(f"[LLM] '{speech_output[:120]}'")
 
     # 4. Speak response
     tts.speak(speech_output)
 
-    # 5. [MODIFIED] Structured Command Parsing
-    # We map the legacy parser output to the new structured format
-    legacy_cmd = parser.parse(speech_output)
+    # 5. [MODIFIED] Structured Command Parsing & Task Sequencing
+    import re
+    sentences = re.split(r'[.!?]+', speech_output)
     
-    structured_action = {"type": "stop"}
+    # Create a local sentence parser with LLM fallback disabled.
+    # This prevents conversational sentences (e.g. "Acknowledged", "Initiating protocol")
+    # from being mistakenly parsed by the LLM as random movement commands.
+    from ai.parser.command_parser import CommandParser
+    sentence_parser = CommandParser(enable_llm_fallback=False)
     
-    # [ADDED] Enhanced Navigation detection
-    target_location = None
-    for loc in LOCATIONS:
-        if loc in user_input.lower() or loc in speech_output.lower():
-            target_location = loc
-            break
-            
-    movement_keywords = ["moving", "navigating", "heading", "proceeding", "way to"]
-    is_moving = any(kw in speech_output.lower() for kw in movement_keywords)
+    action_queue = []
+    
+    for s in sentences:
+        s = s.strip()
+        if not s: continue
+        
+        legacy_cmd = sentence_parser.parse(s)
+        
+        # Enhanced Navigation detection per sentence
+        target_location = None
+        for loc in LOCATIONS:
+            if loc in s.lower():
+                target_location = loc
+                break
+                
+        movement_keywords = ["moving", "navigating", "heading", "proceeding", "way to"]
+        is_moving = any(kw in s.lower() for kw in movement_keywords)
+        
+        structured_action = None
+        # Priority 1: Navigation Goals
+        if target_location and is_moving and target_location != curr_location:
+            structured_action = {
+                "type": "nav_goal",
+                "target": target_location,
+                "coordinates": LOCATIONS[target_location]
+            }
+        # Priority 2: Direct Velocity Commands
+        elif legacy_cmd["action"] in ["move", "rotate"]:
+            structured_action = {
+                "type": "cmd_vel",
+                "linear": legacy_cmd["linear"],
+                "angular": legacy_cmd["angular"],
+                "duration": legacy_cmd.get("duration", 2.0)
+            }
+        # Priority 3: Exploration
+        elif "explore" in s.lower():
+            structured_action = {"type": "explore"}
+        # Priority 4: Memory Storage
+        elif legacy_cmd["action"] == "remember":
+            structured_action = {"type": "remember", "fact": legacy_cmd.get("fact", "")}
+        # Priority 5: Macro Learning
+        elif legacy_cmd["action"] == "learn_routine":
+            structured_action = {
+                "type": "learn_routine", 
+                "routine_name": legacy_cmd.get("routine_name", ""),
+                "routine_sequence": legacy_cmd.get("routine_sequence", "")
+            }
+        
+        if structured_action:
+            action_queue.append(structured_action)
 
-    # Priority 1: Navigation Goals
-    if target_location and is_moving and target_location != curr_location:
-        structured_action = {
-            "type": "nav_goal",
-            "target": target_location,
-            "coordinates": LOCATIONS[target_location]
-        }
-    # Priority 2: Direct Velocity Commands (Parser matches)
-    elif legacy_cmd["action"] in ["move", "rotate"]:
-        structured_action = {
-            "type": "cmd_vel",
-            "linear": legacy_cmd["linear"],
-            "angular": legacy_cmd["angular"]
-        }
-    # Priority 3: Exploration
-    elif "explore" in user_input.lower() or "explore" in speech_output.lower():
-        structured_action = {"type": "explore"}
-    # Default: Stop
-    else:
-        structured_action = {"type": "stop"}
+    # Execute Memory & Macro Storage locally (not sent to ROS2 Bridge)
+    filtered_queue = []
+    for act in action_queue:
+        if act["type"] == "remember":
+            fact = act["fact"]
+            if fact:
+                memory_bank.append(fact)
+                try:
+                    with open(memory_file, "w") as f:
+                        json.dump(memory_bank, f)
+                except Exception as e:
+                    logger.error(f"Failed to write memory: {e}")
+        elif act["type"] == "learn_routine":
+            r_name = act["routine_name"]
+            r_seq = act["routine_sequence"]
+            if r_name and r_seq:
+                routines_bank[r_name] = r_seq
+                try:
+                    with open(routines_file, "w") as f:
+                        json.dump(routines_bank, f)
+                except Exception as e:
+                    logger.error(f"Failed to write routine: {e}")
+        else:
+            filtered_queue.append(act)
+            
+    action_queue = filtered_queue
+
+    if not action_queue:
+        action_queue.append({"type": "stop"})
 
     full_response = {
         "speech": speech_output,
-        "action": structured_action
+        "actions": action_queue
     }
-    logger.info(f"[Core] Selected Action: {structured_action['type']}")
+    logger.info(f"[Core] Selected Actions: {[a.get('type') for a in action_queue]}")
 
-    # 6. Safety check (legacy) - Ensure we don't accidentally overwrite good commands
-    if structured_action["type"] == "cmd_vel" and not parser.is_safe(legacy_cmd):
-        logger.warning("[Safety] Overwriting unsafe command with STOP")
-        full_response["action"] = {"type": "stop"}
+    # 6. Safety check (legacy)
+    for a in action_queue:
+        if a["type"] == "cmd_vel":
+            check_cmd = {
+                "action": "move" if abs(a["linear"]) > 0.01 else "rotate" if abs(a["angular"]) > 0.01 else "stop",
+                "linear": a["linear"],
+                "angular": a["angular"],
+                "duration": a.get("duration", 2.0)
+            }
+            if not parser.is_safe(check_cmd):
+                logger.warning(f"Safety check failed: {check_cmd}")
+                # If any unsafe action, stop entirely
+                action_queue = [{"type": "stop"}]
+                full_response["actions"] = action_queue
+                break
 
     # 7. Route to ROS2
     send_to_ros2(full_response)
     
-    return full_response
-
     return full_response
 
 
@@ -397,7 +548,7 @@ def main() -> None:
             if user_input.lower() in {"quit", "exit", "q"}:
                 break
             cmd = run_pipeline_step(user_input, llm, parser, tts, openclaw)
-            print(f"→ Command: {json.dumps(cmd)}\n")
+            print(f"-> Command: {json.dumps(cmd)}\n")
 
     # ----------------------------------------------------------------
     # Voice mode (microphone)

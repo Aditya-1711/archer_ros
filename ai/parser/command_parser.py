@@ -37,8 +37,8 @@ logger = logging.getLogger("archer.parser")
 # ---------------------------------------------------------------------------
 # Default limits (overridden by settings.yaml if available)
 # ---------------------------------------------------------------------------
-_DEFAULT_MAX_LINEAR = 1.0   # m/s (Increased for Archer V2)
-_DEFAULT_MAX_ANGULAR = 2.0   # rad/s
+_DEFAULT_MAX_LINEAR = 2.0   # m/s (Increased to compensate for RTF)
+_DEFAULT_MAX_ANGULAR = 3.0   # rad/s
 
 
 def _load_safety_config() -> dict:
@@ -57,27 +57,27 @@ def _load_safety_config() -> dict:
 # ---------------------------------------------------------------------------
 #  Adjective   linear   angular   note
 SPEED_MAP: dict[str, tuple[float, float]] = {
-    "slowly":       (0.20,  0.0),
-    "slow":         (0.20,  0.0),
-    "gently":       (0.20,  0.0),
-    "carefully":    (0.20,  0.0),
-    "moderate":     (0.50,  0.0),
-    "moderately":   (0.50,  0.0),
-    "normal":       (0.50,  0.0),
-    "fast":         (0.80,  0.0),
-    "quickly":      (0.80,  0.0),
-    "full":         (1.00,  0.0),
+    "slowly":       (0.40,  0.0),
+    "slow":         (0.40,  0.0),
+    "gently":       (0.40,  0.0),
+    "carefully":    (0.40,  0.0),
+    "moderate":     (1.00,  0.0),
+    "moderately":   (1.00,  0.0),
+    "normal":       (1.00,  0.0),
+    "fast":         (1.60,  0.0),
+    "quickly":      (1.60,  0.0),
+    "full":         (2.00,  0.0),
 }
 
 TURN_SPEED_MAP: dict[str, float] = {
-    "slowly":       0.3,
-    "slow":         0.3,
-    "gently":       0.3,
-    "moderate":     0.6,
-    "moderately":   0.6,
-    "fast":         1.0,
-    "quickly":      1.0,
-    "sharply":      1.0,
+    "slowly":       0.6,
+    "slow":         0.6,
+    "gently":       0.6,
+    "moderate":     1.2,
+    "moderately":   1.2,
+    "fast":         2.0,
+    "quickly":      2.0,
+    "sharply":      2.0,
 }
 
 # ---------------------------------------------------------------------------
@@ -111,6 +111,8 @@ _DURATION = re.compile(
     r"for\s+(\d+(?:\.\d+)?)\s*(second|seconds|sec|s)\b",
     re.IGNORECASE,
 )
+_REMEMBER = re.compile(r'\b(remember|note|save|memorize)\b\s+(that\s+)?(.+)', re.IGNORECASE)
+_LEARN_ROUTINE = re.compile(r'\b(learn|save|record)\b\s+routine\s+(.*?)\s*(?:[=:,-]|as)\s+(.+)', re.IGNORECASE)
 
 
 class CommandParser:
@@ -155,7 +157,7 @@ class CommandParser:
 
         # Final safety clamp — always applied regardless of path
         cmd = self._clamp(cmd)
-        logger.info(f"[Parser] '{raw[:60]}' → {cmd}")
+        logger.info(f"[Parser] '{raw[:60]}' -> {cmd}")
         return cmd
 
     def is_safe(self, cmd: dict) -> bool:
@@ -232,6 +234,27 @@ class CommandParser:
                 raw=text,
             )
 
+        # --- REMEMBER (Memory System) ---
+        mem_match = _REMEMBER.search(text)
+        if mem_match:
+            fact = mem_match.group(3).strip()
+            # Clean trailing punctuation
+            if fact.endswith((".", "!", "?")):
+                fact = fact[:-1]
+            cmd = self._make(action="remember", linear=0.0, angular=0.0, duration=-1, raw=text)
+            cmd["fact"] = fact
+            return cmd
+            
+        # --- LEARN ROUTINE (Macro System) ---
+        routine_match = _LEARN_ROUTINE.search(text)
+        if routine_match:
+            r_name = routine_match.group(2).strip()
+            r_sequence = routine_match.group(3).strip()
+            cmd = self._make(action="learn_routine", linear=0.0, angular=0.0, duration=-1, raw=text)
+            cmd["routine_name"] = r_name
+            cmd["routine_sequence"] = r_sequence
+            return cmd
+
         # --- UNKNOWN — safe default is STOP ---
         logger.debug(f"No pattern matched for: '{text[:60]}'")
         return self._make(action="unknown", linear=0.0, angular=0.0, duration=-1, raw=text)
@@ -283,7 +306,7 @@ class CommandParser:
         m = _DURATION.search(text)
         if m:
             return float(m.group(1))
-        return 2.0  # [MODIFIED] Default to 2s burst instead of infinite
+        return 2.0  # Default to 2.0 (matching docstring)
 
     def _clamp(self, cmd: dict) -> dict:
         """Hard-clamp all velocity values to configured safety limits."""

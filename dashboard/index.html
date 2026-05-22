@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A.R.C.H.E.R. // Tactical Control Core</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #080c14;
+            --panel-bg: rgba(13, 20, 38, 0.55);
+            --border-color: rgba(0, 242, 254, 0.15);
+            --border-glow: rgba(0, 242, 254, 0.4);
+            --primary-glow: #00f2fe;
+            --secondary-glow: #7f00ff;
+            --accent-color: #ff007f;
+            --text-main: #f0f4f8;
+            --text-muted: #8c9ba5;
+            --font-head: 'Space Grotesk', sans-serif;
+            --font-body: 'Outfit', sans-serif;
+            --card-radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 242, 254, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(127, 0, 255, 0.05) 0%, transparent 40%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Ambient Scanning Grid */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(18, 30, 49, 0.1) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(18, 30, 49, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        header {
+            padding: 20px 40px;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(8, 12, 20, 0.7);
+            z-index: 10;
+        }
+
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .pulse-orb {
+            width: 12px;
+            height: 12px;
+            background-color: var(--primary-glow);
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--primary-glow);
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 242, 254, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 242, 254, 0); }
+        }
+
+        header h1 {
+            font-family: var(--font-head);
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary-glow), #4facfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sys-time {
+            font-family: var(--font-head);
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+        }
+
+        .main-container {
+            flex: 1;
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            gap: 25px;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glassmorphism Panels */
+        .panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--card-radius);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .panel:hover {
+            border-color: rgba(0, 242, 254, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(0, 242, 254, 0.05);
+        }
+
+        .panel::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 4px;
+            background: linear-gradient(90deg, var(--primary-glow), var(--secondary-glow));
+            opacity: 0.6;
+        }
+
+        .panel-title {
+            font-family: var(--font-head);
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 12px;
+            color: var(--primary-glow);
+            font-weight: 700;
+        }
+
+        /* Left Column: Diagnostics & Manual Controls */
+        .diag-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .diag-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .diag-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .diag-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            font-family: var(--font-head);
+        }
+
+        .diag-value.nominal { color: #00ff87; }
+        .diag-value.warn { color: #ffbc00; }
+        
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-glow), #00ff87);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        /* Virtual Joystick / D-Pad */
+        .joystick-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 10px 0;
+        }
+
+        .dpad {
+            display: grid;
+            grid-template-areas: 
+                ". up ."
+                "left stop right"
+                ". down .";
+            gap: 10px;
+            width: 180px;
+            height: 180px;
+        }
+
+        .dpad-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(0, 242, 254, 0.2);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+        }
+
+        .dpad-btn:hover {
+            background: rgba(0, 242, 254, 0.1);
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+            transform: scale(1.05);
+        }
+
+        .dpad-btn:active {
+            transform: scale(0.95);
+        }
+
+        .dpad-btn.up { grid-area: up; }
+        .dpad-btn.left { grid-area: left; }
+        .dpad-btn.right { grid-area: right; }
+        .dpad-btn.down { grid-area: down; }
+        .dpad-btn.stop { 
+            grid-area: stop; 
+            background: rgba(255, 0, 127, 0.05); 
+            border-color: rgba(255, 0, 127, 0.3); 
+            color: var(--accent-color);
+        }
+        .dpad-btn.stop:hover {
+            background: rgba(255, 0, 127, 0.15);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.3);
+        }
+
+        .speed-selector {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 5px;
+        }
+
+        .speed-btn {
+            flex: 1;
+            padding: 8px 5px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+        }
+
+        .speed-btn.active {
+            background: var(--primary-glow);
+            color: #080c14;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.4);
+        }
+
+        /* Center Column: Live SVG Floorplan Map */
+        .map-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 450px;
+        }
+
+        .svg-container {
+            flex: 1;
+            background: rgba(5, 8, 16, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+        }
+
+        .wall-path {
+            stroke: rgba(0, 242, 254, 0.25);
+            stroke-width: 3.5;
+            fill: none;
+            stroke-linecap: round;
+        }
+
+        .room-label {
+            font-family: var(--font-head);
+            fill: var(--text-muted);
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-anchor: middle;
+            font-weight: 600;
+        }
+
+        .room-dot {
+            fill: rgba(0, 242, 254, 0.15);
+            stroke: rgba(0, 242, 254, 0.4);
+            stroke-width: 1;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .room-dot:hover {
+            fill: rgba(0, 242, 254, 0.4);
+            stroke: var(--primary-glow);
+            r: 8;
+        }
+
+        .robot-indicator {
+            fill: var(--accent-color);
+            stroke: #fff;
+            stroke-width: 1.5;
+            filter: drop-shadow(0px 0px 8px var(--accent-color));
+            transition: all 0.5s cubic-bezier(0.1, 0.8, 0.2, 1);
+        }
+
+        .robot-pulse {
+            fill: none;
+            stroke: var(--accent-color);
+            stroke-width: 1;
+            animation: radar-ping 2s infinite;
+            pointer-events: none;
+            transition: all 0.5s cubic-bezier(0.1, 0.8, 0.2, 1);
+        }
+
+        @keyframes radar-ping {
+            0% { r: 5; opacity: 1; }
+            100% { r: 35; opacity: 0; }
+        }
+
+        /* Right Column: AI Conversation Terminal */
+        .terminal-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .terminal-log {
+            flex: 1;
+            background: rgba(3, 5, 10, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 450px;
+            min-height: 350px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+        }
+
+        .terminal-log::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .terminal-log::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        .msg-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.4;
+            font-size: 0.9rem;
+            animation: fade-in-up 0.3s ease forwards;
+        }
+
+        @keyframes fade-in-up {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg-bubble.user {
+            background: rgba(0, 242, 254, 0.08);
+            border: 1px solid rgba(0, 242, 254, 0.2);
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .msg-bubble.robot {
+            background: rgba(127, 0, 255, 0.08);
+            border: 1px solid rgba(127, 0, 255, 0.2);
+            color: var(--text-main);
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        .msg-sender {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+            color: var(--primary-glow);
+        }
+        
+        .msg-bubble.robot .msg-sender {
+            color: #bd93f9;
+        }
+
+        .terminal-input-group {
+            display: flex;
+            gap: 10px;
+            position: relative;
+        }
+
+        .terminal-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px 20px;
+            color: #fff;
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .terminal-input:focus {
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.25);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, var(--primary-glow), #4facfe);
+            border: none;
+            border-radius: 10px;
+            color: #080c14;
+            font-weight: 700;
+            font-family: var(--font-head);
+            padding: 0 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 18px rgba(0, 242, 254, 0.5);
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Semantic Quick Goals Grid */
+        .locations-panel {
+            grid-column: 1 / -1;
+        }
+
+        .rooms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .room-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 18px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+        }
+
+        .room-card::after {
+            content: "";
+            position: absolute;
+            bottom: 0; left: 0; width: 0%; height: 2px;
+            background: var(--primary-glow);
+            transition: width 0.3s ease;
+        }
+
+        .room-card:hover {
+            background: rgba(0, 242, 254, 0.04);
+            border-color: rgba(0, 242, 254, 0.25);
+            transform: translateY(-4px);
+        }
+
+        .room-card:hover::after {
+            width: 100%;
+        }
+
+        .room-card-title {
+            font-family: var(--font-head);
+            font-weight: 700;
+            font-size: 1rem;
+            text-transform: capitalize;
+        }
+
+        .room-card-coords {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--font-head);
+        }
+
+        .room-card-status {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            align-self: flex-start;
+            padding: 3px 8px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+        }
+
+        .room-card.active-target .room-card-status {
+            background: rgba(0, 242, 254, 0.15);
+            color: var(--primary-glow);
+        }
+        
+        .room-card.current-loc .room-card-status {
+            background: rgba(0, 255, 135, 0.15);
+            color: #00ff87;
+        }
+
+        /* Loading Spinner */
+        .ai-indicator {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 242, 254, 0.1);
+            border-top: 2px solid var(--primary-glow);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-group">
+            <div class="pulse-orb"></div>
+            <h1>A.R.C.H.E.R. // VOICE-TO-ROBOT CORE</h1>
+        </div>
+        <div class="sys-time" id="sys-time">SYS_TIME // CONNECTING...</div>
+    </header>
+
+    <div class="main-container">
+
+        <!-- Column 1: Diagnostics & D-Pad -->
+        <div class="panel">
+            <div class="panel-title">SYSTEM DIAGNOSTICS</div>
+            <div class="diag-grid">
+                <div class="diag-card">
+                    <div class="diag-label">BATTERY LIFE</div>
+                    <div class="diag-value" id="battery-val">0.0%</div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="battery-bar"></div>
+                    </div>
+                </div>
+                <div class="diag-card">
+                    <div class="diag-label">CPU CORE TEMP</div>
+                    <div class="diag-value" id="cpu-val">0.0°C</div>
+                </div>
+                <div class="diag-card" style="grid-column: span 2;">
+                    <div class="diag-label">SYSTEM STATE</div>
+                    <div class="diag-value nominal" id="state-val">NOMINAL</div>
+                </div>
+                <div class="diag-card" style="grid-column: span 2;">
+                    <div class="diag-label">CURRENT LOCATION</div>
+                    <div class="diag-value" id="loc-val" style="color: var(--primary-glow);">DOCK</div>
+                </div>
+            </div>
+
+            <div class="panel-title" style="margin-top: 15px;">MANUAL OVERRIDE</div>
+            <div class="joystick-container">
+                <div class="dpad">
+                    <button class="dpad-btn up" onclick="sendDrive('forward')">▲</button>
+                    <button class="dpad-btn left" onclick="sendDrive('left')">◀</button>
+                    <button class="dpad-btn stop" onclick="sendDrive('stop')">■</button>
+                    <button class="dpad-btn right" onclick="sendDrive('right')">▶</button>
+                    <button class="dpad-btn down" onclick="sendDrive('backward')">▼</button>
+                </div>
+            </div>
+
+            <div class="diag-label">DRIVE SPEED SELECTOR</div>
+            <div class="speed-selector">
+                <button class="speed-btn" id="spd-slow" onclick="setSpeed('slow')">Slow</button>
+                <button class="speed-btn active" id="spd-moderate" onclick="setSpeed('moderate')">Normal</button>
+                <button class="speed-btn" id="spd-fast" onclick="setSpeed('fast')">Fast</button>
+                <button class="speed-btn" id="spd-full" onclick="setSpeed('full')">Full</button>
+            </div>
+        </div>
+
+        <!-- Column 2: SVG Map -->
+        <div class="panel map-wrapper">
+            <div class="panel-title">
+                2D TACTICAL VECTOR MAP 
+                <span style="font-size: 0.75rem; color: var(--text-muted);">ACTIVE RADAR // MAP FRAME</span>
+            </div>
+            <div class="svg-container">
+                <svg id="radarMap" viewBox="-11 -11 22 22">
+                    <!-- Scan Grid Coordinates -->
+                    <circle cx="0" cy="0" r="3.0" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="0.1" stroke-dasharray="0.2 0.2"/>
+                    <circle cx="0" cy="0" r="6.0" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="0.1" stroke-dasharray="0.2 0.2"/>
+                    <circle cx="0" cy="0" r="9.0" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="0.1" stroke-dasharray="0.2 0.2"/>
+                    
+                    <line x1="-11" y1="0" x2="11" y2="0" stroke="rgba(255,255,255,0.02)" stroke-width="0.05"/>
+                    <line x1="0" y1="-11" x2="0" y2="11" stroke="rgba(255,255,255,0.02)" stroke-width="0.05"/>
+
+                    <!-- Wall Outlines (Indoor floorplan structure of archer_world) -->
+                    <!-- Hallway and Room borders mapped from coordinates -->
+                    <path class="wall-path" d="
+                        M -10 -10 L 10 -10
+                        M -10 10 L -2 10
+                        M 2 10 L 10 10
+                        M 10 -10 L 10 10
+                        M -10 -10 L -10 10
+                        M -5 2 L 5 2
+                        M -5 -10 L -5 4
+                        M 3 -5 L 7 -5
+                        M 3 -5 L 3 -10
+                    " />
+
+                    <!-- Room Icons & Dots -->
+                    <g id="map-room-markers"></g>
+
+                    <!-- Robot Indicator -->
+                    <circle class="robot-pulse" id="robotPulse" cx="0" cy="0" r="0.8" />
+                    <!-- Pointy triangular robot indicator heading forward (+x is right, yaw-rotation correct) -->
+                    <polygon class="robot-indicator" id="robotMarker" points="0.7,0 -0.4,-0.4 -0.16,0 -0.4,0.4" transform="translate(0, 0) rotate(0)" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- Column 3: AI Console -->
+        <div class="panel terminal-wrapper">
+            <div class="panel-title">AI NEURAL TERMINAL</div>
+            <div class="terminal-log" id="chat-log">
+                <div class="msg-bubble robot">
+                    <div class="msg-sender">A.R.C.H.E.R.</div>
+                    System initialized. Neural connection online. Send command or coordinate routing instructions, Boss.
+                </div>
+            </div>
+            
+            <div class="terminal-input-group">
+                <input type="text" class="terminal-input" id="chat-input" placeholder="Enter robot vector instruction (e.g. 'go kitchen')..." onkeydown="if(event.key === 'Enter') sendCommand()">
+                <div class="ai-indicator" id="ai-spinner">
+                    <div class="spinner"></div>
+                </div>
+                <button class="send-btn" onclick="sendCommand()">Transmit</button>
+            </div>
+        </div>
+
+        <!-- Row 4: Semantic Quick Goals Grid -->
+        <div class="panel locations-panel">
+            <div class="panel-title">SEMANTIC SPATIAL NAVIGATION TARGETS</div>
+            <div class="rooms-grid" id="rooms-grid">
+                <!-- Javascript populated -->
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let currentSpeed = 'moderate';
+        let currentCoords = [0.0, 0.0, 0.0];
+        let currentYaw = 0.0;
+        let isProcessing = false;
+        
+        // Mapped rooms from JSON
+        const ROOMS = {
+            "living room": [0.0, 1.0, 0.0],
+            "kitchen": [2.0, -6.5, 0.0],
+            "bedroom": [7.0, 9.0, 0.0],
+            "garage": [-7.5, 5.0, 0.0],
+            "dock": [0.0, 0.0, 0.0]
+        };
+
+        // System Time
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('sys-time').innerText = `SYS_TIME // ${now.toISOString().replace('T', ' ').substring(0, 19)}`;
+        }, 1000);
+
+        // Fetch Diagnostics and Status
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (!response.ok) return;
+                const status = await response.json();
+                
+                // Update Diagnostics
+                document.getElementById('battery-val').innerText = `${status.battery.toFixed(1)}%`;
+                document.getElementById('battery-bar').style.width = `${status.battery}%`;
+                document.getElementById('cpu-val').innerText = `${status.cpu_temp.toFixed(1)}°C`;
+                document.getElementById('loc-val').innerText = status.location.toUpperCase();
+                
+                const stateValEl = document.getElementById('state-val');
+                stateValEl.innerText = status.status.toUpperCase();
+                if (status.status.toLowerCase() === 'nominal') {
+                    stateValEl.className = 'diag-value nominal';
+                } else {
+                    stateValEl.className = 'diag-value warn';
+                }
+
+                // Update Map Robot Marker Position
+                // Note: SVG maps +x to right and +y to down, so we flip y sign for correct mapping coordinate visualization!
+                const rx = status.coordinates[0];
+                const ry = -status.coordinates[1]; // flip y coordinate for correct SVG rendering direction
+                const yawRad = status.coordinates[2] || 0.0;
+                const yawDeg = yawRad * (180 / Math.PI);
+
+                const marker = document.getElementById('robotMarker');
+                const pulse = document.getElementById('robotPulse');
+                
+                marker.setAttribute('transform', `translate(${rx}, ${ry}) rotate(${yawDeg})`);
+                pulse.setAttribute('cx', rx);
+                pulse.setAttribute('cy', ry);
+
+                // Highlight Active/Current location in grid cards
+                document.querySelectorAll('.room-card').forEach(card => {
+                    const roomName = card.dataset.room;
+                    card.className = 'room-card';
+                    if (roomName === status.location.toLowerCase()) {
+                        card.classList.add('current-loc');
+                    }
+                });
+
+            } catch (err) {
+                console.error("Failed to read status: ", err);
+            }
+        }
+
+        // Render Room Markers in SVG
+        function renderRoomMarkers() {
+            const container = document.getElementById('map-room-markers');
+            container.innerHTML = '';
+            
+            for (const [name, coords] of Object.entries(ROOMS)) {
+                const mx = coords[0];
+                const my = -coords[1]; // flip y sign
+                
+                // Add interactive dots
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', mx);
+                circle.setAttribute('cy', my);
+                circle.setAttribute('r', 0.35);
+                circle.className.baseVal = 'room-dot';
+                circle.onclick = () => sendRoomNav(name);
+                
+                // Add room label text
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', mx);
+                text.setAttribute('y', my - 0.6);
+                text.className.baseVal = 'room-label';
+                text.textContent = name.toUpperCase();
+                
+                container.appendChild(circle);
+                container.appendChild(text);
+            }
+        }
+
+        // Render Room Cards in Bottom Grid
+        function renderRoomCards() {
+            const grid = document.getElementById('rooms-grid');
+            grid.innerHTML = '';
+            
+            for (const [name, coords] of Object.entries(ROOMS)) {
+                const card = document.createElement('div');
+                card.className = 'room-card';
+                card.dataset.room = name;
+                card.onclick = () => sendRoomNav(name);
+                
+                card.innerHTML = `
+                    <div class="room-card-title">${name}</div>
+                    <div class="room-card-coords">X: ${coords[0]}, Y: ${coords[1]}</div>
+                    <div class="room-card-status">Standby</div>
+                `;
+                grid.appendChild(card);
+            }
+        }
+
+        // Send direct navigation to room
+        async function sendRoomNav(roomName) {
+            appendChat('user', `Go to the ${roomName}`);
+            appendChat('robot', `Acknowledged. Navigation target set to ${roomName.toUpperCase()}. Activating diff-drive pipeline...`);
+            
+            try {
+                const response = await fetch('/api/manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'nav_goal',
+                        target: roomName,
+                        coordinates: ROOMS[roomName]
+                    })
+                });
+                
+                if (response.ok) {
+                    // Flash room card as target
+                    document.querySelectorAll('.room-card').forEach(card => {
+                        if (card.dataset.room === roomName) {
+                            card.className = 'room-card active-target';
+                        }
+                    });
+                }
+            } catch (err) {
+                appendChat('robot', `ERROR: Failed to establish uplink connection to ROS2 gateway.`);
+            }
+        }
+
+        // Send keyboard / voice natural language command to Llama Core
+        async function sendCommand() {
+            const inputEl = document.getElementById('chat-input');
+            const text = inputEl.value.trim();
+            if (!text || isProcessing) return;
+            
+            inputEl.value = '';
+            appendChat('user', text);
+            
+            isProcessing = true;
+            document.getElementById('ai-spinner').style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: text })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    appendChat('robot', result.speech);
+                } else {
+                    appendChat('robot', `System error: Failed to process command neural pipeline.`);
+                }
+            } catch (err) {
+                appendChat('robot', `Transmission fault: A.R.C.H.E.R. neural core is currently unreachable.`);
+            } finally {
+                isProcessing = false;
+                document.getElementById('ai-spinner').style.display = 'none';
+            }
+        }
+
+        // Send D-pad direct velocity controls
+        async function sendDrive(direction) {
+            try {
+                await fetch('/api/manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'cmd_vel',
+                        direction: direction,
+                        speed: currentSpeed
+                    })
+                });
+            } catch (err) {
+                console.error("Failed to transmit manual drive command: ", err);
+            }
+        }
+
+        // Set speed selector
+        function setSpeed(speedLevel) {
+            currentSpeed = speedLevel;
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.className = 'speed-btn';
+            });
+            document.getElementById(`spd-${speedLevel}`).className = 'speed-btn active';
+        }
+
+        // Chat Log helpers
+        function appendChat(sender, message) {
+            const chatLog = document.getElementById('chat-log');
+            const bubble = document.createElement('div');
+            bubble.className = `msg-bubble ${sender}`;
+            
+            const senderName = sender === 'user' ? 'Operator' : 'A.R.C.H.E.R.';
+            bubble.innerHTML = `
+                <div class="msg-sender">${senderName}</div>
+                ${message}
+            `;
+            
+            chatLog.appendChild(bubble);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        // Init
+        renderRoomMarkers();
+        renderRoomCards();
+        fetchStatus();
+        setInterval(fetchStatus, 500); // 2Hz updates
+
+    </script>
+</body>
+</html>

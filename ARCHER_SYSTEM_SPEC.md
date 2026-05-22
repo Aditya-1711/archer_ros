@@ -77,10 +77,11 @@ Archer uses a real-to-virtual coordinate mapping for semantic awareness.
 
 | Friendly Name | Coordinates [X, Y, Z] | Type |
 | :--- | :--- | :--- |
-| **origin** | `[0.0, 0.0, 0.0]` | Spawn Point |
-| **kitchen** | `[2.0, 3.5, 0.0]` | Goal Node |
-| **living_room** | `[-2.0, 2.0, 0.0]` | Goal Node |
-| **bedroom** | `[1.5, -1.5, 0.0]` | Goal Node |
+| **origin / dock** | `[0.0, 0.0, 0.0]` | Spawn Point |
+| **living_room** | `[0.0, 1.0, 0.0]` | Goal Node |
+| **kitchen** | `[2.0, -6.5, 0.0]` | Goal Node |
+| **bedroom** | `[7.0, 9.0, 0.0]` | Goal Node |
+| **garage** | `[-7.5, 5.0, 0.0]` | Goal Node |
 
 ---
 

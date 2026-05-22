@@ -53,6 +53,9 @@
   <gazebo>
     <plugin filename="libgz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
       <parameters>$(find archer_description)/config/controllers.yaml</parameters>
+      <ros>
+        <namespace>/</namespace>
+      </ros>
     </plugin>
   </gazebo>
 

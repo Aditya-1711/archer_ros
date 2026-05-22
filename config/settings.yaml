@@ -73,12 +73,12 @@ ros2:
 # Safety Limits  ← DO NOT increase without physical testing
 # ---------------------------------------------------------------------------
 safety:
-  # Maximum linear velocity (m/s) — TurtleBot3 max is 0.26 m/s
-  max_linear: 0.22
-  # Maximum angular velocity (rad/s) — TurtleBot3 max is 1.82 rad/s
-  max_angular: 1.0
+  # Maximum linear velocity (m/s) — Humanoid config (Compensates for 9.8% RTF)
+  max_linear: 2.0
+  # Maximum angular velocity (rad/s)
+  max_angular: 3.0
   # Watchdog: publish zero velocity if no command received within N seconds
-  watchdog_timeout: 2.0
+  watchdog_timeout: 3.0
   # Commands from the LLM are ALWAYS validated before publishing
   require_validation: true
 

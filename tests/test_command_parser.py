@@ -44,12 +44,12 @@ class TestMoveForward:
     def test_drive_forward(self, parser):
         cmd = parser.parse("Driving forward slowly.")
         assert cmd["action"] == "move"
-        assert cmd["linear"] == pytest.approx(0.10, abs=0.01)
+        assert cmd["linear"] == pytest.approx(0.40, abs=0.01)
 
     def test_go_ahead(self, parser):
         cmd = parser.parse("Going ahead quickly.")
         assert cmd["action"] == "move"
-        assert cmd["linear"] == pytest.approx(0.22, abs=0.01)
+        assert cmd["linear"] == pytest.approx(1.60, abs=0.01)
 
     def test_advance(self, parser):
         cmd = parser.parse("Advancing straight.")
@@ -227,7 +227,7 @@ class TestDuration:
 
     def test_no_duration(self, parser):
         cmd = parser.parse("Move forward.")
-        assert cmd["duration"] == 0.0  # indefinite
+        assert cmd["duration"] == 2.0  # Default to 2.0
 
 
 # ---------------------------------------------------------------------------

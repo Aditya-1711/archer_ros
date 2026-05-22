@@ -17,7 +17,7 @@ Visualization Manager:
     - Alpha: 0.5
       Cell Size: 1
       Class: rviz_default_plugins/Grid
-      Color: 160; 160; 164
+      Color: 30; 50; 80
       Enabled: true
       Line Style:
         Line Width: 0.03
@@ -44,7 +44,7 @@ Visualization Manager:
       Name: RobotModel
       Visual Enabled: true
     - Class: rviz_default_plugins/TF
-      Enabled: true
+      Enabled: false
       Name: TF
       Marker Scale: 0.3
       Show Arrows: true
@@ -57,10 +57,10 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Best Effort
         Value: /scan
-      Color: 255; 25; 0
+      Color: 0; 242; 254
       Enabled: true
       Name: LaserScan
-      Size (m): 0.1
+      Size (m): 0.08
     - Class: rviz_default_plugins/Image
       Topic:
         Depth: 5
@@ -79,10 +79,48 @@ Visualization Manager:
         Value: /map
       Enabled: true
       Name: Map
+    - Class: rviz_default_plugins/Path
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /plan
+      Color: 0; 255; 135
+      Enabled: true
+      Name: Global Plan
+    - Class: rviz_default_plugins/Path
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /local_plan
+      Color: 127; 0; 255
+      Enabled: true
+      Name: Local Plan
+    - Class: rviz_default_plugins/MarkerArray
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /occupied_cells_vis_array
+      Enabled: true
+      Name: Voxel Map
+    - Class: rviz_default_plugins/PointCloud2
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /archer/camera/points
+      Enabled: false
+      Name: Raw PointCloud
   Enabled: true
   Global Options:
-    Background Color: 48; 48; 48
-    Fixed Frame: odom
+    Background Color: 10; 14; 23
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
