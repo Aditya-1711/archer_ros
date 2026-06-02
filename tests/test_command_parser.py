@@ -260,6 +260,51 @@ class TestIsSafe:
 
 
 # ---------------------------------------------------------------------------
+# New Reflex and Common Sense Direction Tests
+# ---------------------------------------------------------------------------
+class TestReflexAndCommonSense:
+    def test_take_left(self, parser):
+        cmd = parser.parse("take left")
+        assert cmd["action"] == "rotate"
+        assert cmd["angular"] > 0
+
+    def test_take_a_right(self, parser):
+        cmd = parser.parse("take a right")
+        assert cmd["action"] == "rotate"
+        assert cmd["angular"] < 0
+
+    def test_go_left(self, parser):
+        cmd = parser.parse("go left")
+        assert cmd["action"] == "rotate"
+        assert cmd["angular"] > 0
+
+    def test_go_forward_steps(self, parser):
+        cmd = parser.parse("go forward three steps")
+        assert cmd["action"] == "move"
+        assert cmd["linear"] > 0
+        assert cmd["duration"] == pytest.approx(3.0, abs=0.01)
+
+    def test_go_to_kitchen(self, parser):
+        cmd = parser.parse("go to the kitchen")
+        assert cmd["action"] == "nav_goal"
+        assert cmd["target"] == "kitchen"
+        assert "coordinates" in cmd
+
+    def test_explore_area(self, parser):
+        cmd = parser.parse("explore the area")
+        assert cmd["action"] == "explore"
+
+    def test_execute_routine(self, parser):
+        cmd = parser.parse("execute routine patrol_garage")
+        assert cmd["action"] == "execute_routine"
+        assert cmd["routine_name"] == "patrol_garage"
+
+    def test_is_safe_new_actions(self, parser):
+        cmd_nav = {"action": "nav_goal", "linear": 0.0, "angular": 0.0, "duration": -1}
+        assert parser.is_safe(cmd_nav) is True
+
+
+# ---------------------------------------------------------------------------
 # Module-level convenience function
 # ---------------------------------------------------------------------------
 class TestModuleLevelFunction:

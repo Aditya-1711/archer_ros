@@ -1,0 +1,1 @@
+{"cpu_usage_pct": 10.7, "ram_usage_mb": 343.5, "vision_fps": 10.0, "battery_percent": 95.7, "safety_state": "EMERGENCY_STOP", "active_navigation_goal": null, "memory_db_health": "nominal", "faiss_index_health": "disabled", "watchdog_status": "nominal", "current_operational_mode": "direct"}

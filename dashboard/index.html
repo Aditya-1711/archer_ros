@@ -332,7 +332,7 @@
 
         .wall-path {
             stroke: rgba(0, 242, 254, 0.25);
-            stroke-width: 3.5;
+            stroke-width: 0.15;
             fill: none;
             stroke-linecap: round;
         }
@@ -340,8 +340,8 @@
         .room-label {
             font-family: var(--font-head);
             fill: var(--text-muted);
-            font-size: 11px;
-            letter-spacing: 1px;
+            font-size: 0.8px;
+            letter-spacing: 0.05px;
             text-anchor: middle;
             font-weight: 600;
         }
@@ -349,7 +349,7 @@
         .room-dot {
             fill: rgba(0, 242, 254, 0.15);
             stroke: rgba(0, 242, 254, 0.4);
-            stroke-width: 1;
+            stroke-width: 0.05;
             cursor: pointer;
             transition: all 0.3s ease;
         }
@@ -357,29 +357,29 @@
         .room-dot:hover {
             fill: rgba(0, 242, 254, 0.4);
             stroke: var(--primary-glow);
-            r: 8;
+            r: 0.6;
         }
 
         .robot-indicator {
             fill: var(--accent-color);
             stroke: #fff;
-            stroke-width: 1.5;
-            filter: drop-shadow(0px 0px 8px var(--accent-color));
+            stroke-width: 0.05;
+            filter: drop-shadow(0px 0px 4px var(--accent-color));
             transition: all 0.5s cubic-bezier(0.1, 0.8, 0.2, 1);
         }
 
         .robot-pulse {
             fill: none;
             stroke: var(--accent-color);
-            stroke-width: 1;
+            stroke-width: 0.05;
             animation: radar-ping 2s infinite;
             pointer-events: none;
             transition: all 0.5s cubic-bezier(0.1, 0.8, 0.2, 1);
         }
 
         @keyframes radar-ping {
-            0% { r: 5; opacity: 1; }
-            100% { r: 35; opacity: 0; }
+            0% { r: 0.8; opacity: 1; }
+            100% { r: 6; opacity: 0; }
         }
 
         /* Right Column: AI Conversation Terminal */

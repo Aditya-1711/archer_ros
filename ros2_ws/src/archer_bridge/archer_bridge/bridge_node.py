@@ -6,8 +6,14 @@ import math
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
-from std_msgs.msg import String, Float64MultiArray
+from std_msgs.msg import String, Float64MultiArray, Header
+import time
 from nav_msgs.msg import Odometry
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+from rclpy.action import ActionClient
+from nav2_msgs.action import NavigateToPose
 
 logger = logging.getLogger("archer.bridge")
 
@@ -20,13 +26,34 @@ class ArcherBridgeNode(Node):
         self.get_logger().info(f"ArcherBridge initialized. Monitoring: {self._sim_path}")
 
         # Publishers & Subscribers
-        self._vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
+        self._vel_pub = self.create_publisher(Twist, "/archer/cmd_vel_raw", 10)
         self._goal_pub = self.create_publisher(PoseStamped, "/goal_pose", 10)
+        self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self._odom_sub = self.create_subscription(Odometry, '/odom', self._odom_callback, 10)
         self._cmd_vel_sub = self.create_subscription(Twist, "/cmd_vel", self._cmd_vel_callback, 10)
         
+        # Heartbeat publishers
+        self._heartbeat_pub = self.create_publisher(Header, "/archer/heartbeat/bridge", 10)
+        self._ai_heartbeat_pub = self.create_publisher(Header, "/archer/heartbeat/ai_core", 10)
+        
+        # tf2 listener
+        self._tf_buffer = Buffer()
+        self._tf_listener = TransformListener(self._tf_buffer, self)
+
+        
         # State
         self._last_processed_id = None
+        try:
+            cmd_file = os.path.join(self._sim_path, "last_cmd.yaml")
+            if os.path.exists(cmd_file):
+                with open(cmd_file, "r") as f:
+                    payload = yaml.safe_load(f)
+                self._last_processed_id = payload.get("cmd_id")
+        except Exception:
+            pass
+            
+        self._last_seen_ai_ts = None
+        self._last_seen_ai_time = 0.0
         self._locations = self._load_locations()
         self._action_queue = []
         self._active_action = None
@@ -73,6 +100,29 @@ class ArcherBridgeNode(Node):
         return {}
 
     def _file_poll_callback(self):
+        # Publish bridge heartbeat
+        hdr = Header()
+        hdr.stamp = self.get_clock().now().to_msg()
+        self._heartbeat_pub.publish(hdr)
+        
+        # Check and publish AI Core heartbeat from host side (clock-independent)
+        ai_hb_file = os.path.join(self._sim_path, "ai_heartbeat.json")
+        if os.path.exists(ai_hb_file):
+            try:
+                with open(ai_hb_file, "r") as f:
+                    payload = json.load(f)
+                ts = payload.get("timestamp", 0.0)
+                current_time = time.time()
+                if self._last_seen_ai_ts is None or ts != self._last_seen_ai_ts:
+                    self._last_seen_ai_ts = ts
+                    self._last_seen_ai_time = current_time
+                
+                if current_time - self._last_seen_ai_time < 5.0: # If fresh within 5s
+                    ai_hdr = Header()
+                    ai_hdr.stamp = self.get_clock().now().to_msg()
+                    self._ai_heartbeat_pub.publish(ai_hdr)
+            except Exception: pass
+
         # 1. Continuous Velocity Publishing & Queue Management
         now = self.get_clock().now().nanoseconds / 1e9
         
@@ -118,15 +168,27 @@ class ArcherBridgeNode(Node):
                 self.get_logger().info(">>> QUEUE: STOP")
                 
             elif act_type == "nav_goal":
-                goal = PoseStamped()
-                goal.header.frame_id = "map"
-                goal.header.stamp = self.get_clock().now().to_msg()
+                goal_msg = NavigateToPose.Goal()
+                goal_msg.pose.header.frame_id = "map"
+                goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
                 coords = self._active_action.get("coordinates", [0.0, 0.0, 0.0])
-                goal.pose.position.x = float(coords[0])
-                goal.pose.position.y = float(coords[1])
-                goal.pose.orientation.w = 1.0
-                self._goal_pub.publish(goal)
-                self.get_logger().info(f">>> QUEUE: Published Nav2 Goal: {coords}")
+                goal_msg.pose.pose.position.x = float(coords[0])
+                goal_msg.pose.pose.position.y = float(coords[1])
+                goal_msg.pose.pose.orientation.w = 1.0
+                
+                # Publish to /goal_pose just for RViz visualisation
+                pose_stamped = PoseStamped()
+                pose_stamped.header = goal_msg.pose.header
+                pose_stamped.pose = goal_msg.pose.pose
+                self._goal_pub.publish(pose_stamped)
+                
+                # Send the actual Action Goal to Nav2
+                if self._nav_client.wait_for_server(timeout_sec=1.0):
+                    self._nav_client.send_goal_async(goal_msg)
+                    self.get_logger().info(f">>> QUEUE: Sent Nav2 Action Goal: {coords}")
+                else:
+                    self.get_logger().warn(f">>> QUEUE: Nav2 Action Server not available! Dropping goal: {coords}")
+
                 # Save target coordinates for distance monitoring
                 self._active_action["target_x"] = float(coords[0])
                 self._active_action["target_y"] = float(coords[1])
@@ -134,7 +196,20 @@ class ArcherBridgeNode(Node):
                 self._stop_time = now + 60.0
                 
             elif act_type == "explore":
-                self.get_logger().info(">>> QUEUE: Exploration triggered (Stub)")
+                self.get_logger().info(">>> QUEUE: Exploration triggered - generating random mapping path")
+                import random
+                coverage_actions = []
+                for i in range(10):
+                    rx = round(random.uniform(-3.0, 3.0), 2)
+                    ry = round(random.uniform(-3.0, 3.0), 2)
+                    coverage_actions.append({
+                        "type": "nav_goal",
+                        "target": f"random_frontier_{i}",
+                        "coordinates": [rx, ry, 0.0]
+                    })
+                
+                # Prepend the generated sequence to the front of the queue
+                self._action_queue = coverage_actions + self._action_queue
                 self._active_action = None
 
         # Continuous publishing for active twist
@@ -178,16 +253,40 @@ class ArcherBridgeNode(Node):
         self._latest_cmd_vel = msg
 
     def _odom_callback(self, msg: Odometry):
-        self._current_x = msg.pose.pose.position.x
-        self._current_y = msg.pose.pose.position.y
-        x = self._current_x
-        y = self._current_y
+        # Fallback to odom values if TF is not ready
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
         
         # Calculate yaw from quaternion orientation
         q = msg.pose.pose.orientation
         siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
         cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
         yaw = math.atan2(siny_cosp, cosy_cosp)
+        
+        # Attempt to get map-frame pose from TF
+        try:
+            t = self._tf_buffer.lookup_transform("map", "base_link", rclpy.time.Time())
+            x = t.transform.translation.x
+            y = t.transform.translation.y
+            
+            # Calculate yaw from TF orientation
+            q_tf = t.transform.rotation
+            siny_tf = 2.0 * (q_tf.w * q_tf.z + q_tf.x * q_tf.y)
+            cosy_tf = 1.0 - 2.0 * (q_tf.y * q_tf.y + q_tf.z * q_tf.z)
+            yaw = math.atan2(siny_tf, cosy_tf)
+            
+            if not hasattr(self, '_tf_success_logged'):
+                self.get_logger().info("TF lookup map -> base_link succeeded! Using map coordinates.")
+                self._tf_success_logged = True
+        except Exception as ex:
+            if not hasattr(self, '_tf_fail_logged'):
+                self.get_logger().warn(f"TF lookup map -> base_link failed: {ex}. Falling back to raw odom.")
+                self._tf_fail_logged = True
+            pass
+            
+        self._current_x = x
+        self._current_y = y
+
         
         # Determine current room based on locations.json bounding boxes
         current_room = "unknown"
@@ -214,25 +313,7 @@ class ArcherBridgeNode(Node):
             pass
 
     def _diagnostics_callback(self):
-        # Simulate Battery Drain
-        if self._active_action is not None and "twist" in self._active_action:
-            self._battery -= 0.05
-            self._cpu_temp += 0.5
-        else:
-            self._battery -= 0.01
-            self._cpu_temp = max(45.0, self._cpu_temp - 1.0)
-            
-        diag_file = os.path.join(self._sim_path, "diagnostics.json")
-        diag = {
-            "battery_percent": round(self._battery, 1),
-            "cpu_temp_c": round(self._cpu_temp, 1),
-            "status": "nominal" if self._battery > 15 else "low_battery"
-        }
-        try:
-            with open(diag_file, "w") as f:
-                json.dump(diag, f)
-        except:
-            pass
+        pass
 
     def _gait_timer_callback(self):
         # Detect if the robot is moving

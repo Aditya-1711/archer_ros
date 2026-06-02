@@ -9,18 +9,29 @@ import logging
 import re
 import requests
 from typing import Optional
+from pathlib import Path
 
 logger = logging.getLogger("archer.llm")
 
+def _load_ollama_config() -> dict:
+    try:
+        import yaml  # type: ignore
+        cfg_path = Path(__file__).parent.parent.parent / "config" / "settings.yaml"
+        with open(cfg_path, encoding="utf-8") as f:
+            return yaml.safe_load(f).get("ollama", {})
+    except Exception:
+        return {}
+
 class OllamaClient:
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "llama3.2:1b"):
-        self.base_url = base_url.rstrip("/")
-        self.model = model
-        self.timeout = 20
+    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None):
+        cfg = _load_ollama_config()
+        self.base_url = (base_url or cfg.get("base_url", "http://localhost:11434")).rstrip("/")
+        self.model = model or cfg.get("model", "llama3.2:1b")
+        self.timeout = int(cfg.get("timeout", 120))
 
     def is_available(self) -> bool:
         try:
-            return requests.get(f"{self.base_url}/api/tags", timeout=2).status_code == 200
+            return requests.get(f"{self.base_url}/api/tags", timeout=5).status_code == 200
         except:
             return False
 

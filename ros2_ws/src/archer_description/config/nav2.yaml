@@ -84,15 +84,15 @@ controller_server:
       primary_controller: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       angular_dist_threshold: 0.785
       forward_sampling_distance: 0.5
-      rotate_to_heading_angular_vel: 1.8
-      max_angular_accel: 3.2
-      simulate_ahead_time: 1.0
-      desired_linear_vel: 1.2
-      max_velocity: 1.5
+      rotate_to_heading_angular_vel: 1.0
+      max_angular_accel: 2.0
+      simulate_ahead_time: 0.5
+      desired_linear_vel: 0.5
+      max_velocity: 0.8
       min_approach_linear_velocity: 0.1
-      max_allowed_w: 1.8
+      max_allowed_w: 1.0
       min_lookahead_dist: 0.3
-      max_lookahead_dist: 0.9
+      max_lookahead_dist: 0.6
 
 planner_server:
   ros__parameters:
@@ -102,7 +102,7 @@ planner_server:
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
       tolerance: 0.5
-      use_astar: false
+      use_astar: true
       allow_unknown: true
 
 behavior_server:
@@ -119,7 +119,7 @@ behavior_server:
       plugin: "nav2_behaviors::Wait"
     global_frame: odom
     robot_base_frame: base_link
-    transform_timeout: 0.1
+    transform_timeout: 0.5
     use_sim_time: true
 
 collision_monitor:
@@ -137,7 +137,7 @@ collision_monitor:
     polygons: ["stop_polygon"]
     stop_polygon:
       type: "polygon"
-      points: "[[0.3, 0.3], [0.3, -0.3], [-0.3, -0.3], [-0.3, 0.3]]"
+      points: "[[0.15, 0.15], [0.15, -0.15], [-0.15, -0.15], [-0.15, 0.15]]"
       action_type: "stop"
       max_points: 4
       visualize: True
@@ -185,7 +185,8 @@ local_costmap:
       width: 3
       height: 3
       resolution: 0.05
-      robot_radius: 0.35
+      robot_radius: 0.15
+      transform_tolerance: 0.5
       plugins: ["obstacle_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
@@ -197,10 +198,11 @@ local_costmap:
           clearing: True
           marking: True
           data_type: "LaserScan"
+          observation_persistence: 0.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        inflation_radius: 0.25
 
 global_costmap:
   global_costmap:
@@ -212,6 +214,7 @@ global_costmap:
       use_sim_time: True
       rolling_window: false
       track_unknown_space: true
+      transform_tolerance: 0.5
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -226,7 +229,8 @@ global_costmap:
           clearing: True
           marking: True
           data_type: "LaserScan"
+          observation_persistence: 0.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        inflation_radius: 0.25

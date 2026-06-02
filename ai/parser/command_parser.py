@@ -51,6 +51,18 @@ def _load_safety_config() -> dict:
         return {}
 
 
+def _load_locations() -> dict:
+    try:
+        cfg_path = Path(__file__).parent.parent.parent / "simulation" / "locations.json"
+        with open(cfg_path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+LOCATIONS = _load_locations()
+
+
 # ---------------------------------------------------------------------------
 # Speed reference table (keyword → (linear m/s, angular rad/s))
 # All values must respect the safety limits above.
@@ -84,35 +96,45 @@ TURN_SPEED_MAP: dict[str, float] = {
 # Pattern library — order matters (more specific first)
 # ---------------------------------------------------------------------------
 _MOVE_FORWARD = re.compile(
-    r"\b(mov(?:e|ing)|go(?:ing)?|driv(?:e|ing)|advanc(?:e|ing))\s*(forward|foward|ahead|straight|front)?\b",
+    r"\b(mov(?:e|ing)|go(?:ing)?|driv(?:e|ing)|advanc(?:e|ing)|step(?:ping)?|walk(?:ing)?|proceed(?:ing)?)\s*(forward|foward|ahead|straight|front)?\b|\b(straight\s+ahead|keep\s+going)\b",
     re.IGNORECASE,
 )
 _MOVE_BACKWARD = re.compile(
-    r"\b(mov(?:e|ing)\s+back(?:ward|word)?s?|go(?:ing)?\s+back(?:ward|word)?s?|back(?:ing)?\s*up|revers(?:e|ing|al)|return(?:ing)?\s*back|back(?:ward)?)\b",
+    r"\b(mov(?:e|ing)\s+back(?:ward|word)?s?|go(?:ing)?\s+back(?:ward|word)?s?|back(?:ing)?\s*up|revers(?:e|ing|al)|return(?:ing)?\s*back|back(?:ward)?|go(?:ing)?\s+back|step(?:ping)?\s+back|walk(?:ing)?\s+back)\b",
     re.IGNORECASE,
 )
 _TURN_LEFT = re.compile(
-    r"\b(turn(?:ing)?|rotat(?:e|ing)|pivot(?:ing)?)\s*(left|counter\s*-?clockwise|ccw)\b",
+    r"\b(turn(?:ing)?|rotat(?:e|ing)|pivot(?:ing)?|take(?:ing)?(?:\s+a)?|go(?:ing)?|bear(?:ing)?|steer(?:ing)?|head(?:ing)?)\s+(left|counter\s*-?clockwise|ccw)\b|\bleft\s+turn\b",
     re.IGNORECASE,
 )
 _TURN_RIGHT = re.compile(
-    r"\b(turn(?:ing)?|rotat(?:e|ing)|pivot(?:ing)?)\s*(right|clockwise|cw)\b",
+    r"\b(turn(?:ing)?|rotat(?:e|ing)|pivot(?:ing)?|take(?:ing)?(?:\s+a)?|go(?:ing)?|bear(?:ing)?|steer(?:ing)?|head(?:ing)?)\s+(right|clockwise|cw)\b|\bright\s+turn\b",
     re.IGNORECASE,
 )
 _STOP = re.compile(
-    r"\b(stop(?:ping)?|halt(?:ing)?|stand(?:ing)?\s*by|cease|freeze|robot\s+halt(?:ed)?)\b",
+    r"\b(stop(?:ping)?|halt(?:ing)?|stand(?:ing)?\s*by|cease|freeze|robot\s+halt(?:ed)?|stop\s+moving)\b",
     re.IGNORECASE,
 )
 _STATUS = re.compile(
-    r"\b(status|nominal|operational|systems?|all\s+systems?|standing\s+by)\b",
+    r"\b(status|nominal|operational|systems?|all\s+systems?|standing\s+by|battery|temp|temperature)\b",
     re.IGNORECASE,
 )
 _DURATION = re.compile(
     r"for\s+(\d+(?:\.\d+)?)\s*(second|seconds|sec|s)\b",
     re.IGNORECASE,
 )
+_STEPS = re.compile(
+    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+steps?\b",
+    re.IGNORECASE,
+)
+_WORD_TO_NUM = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10
+}
 _REMEMBER = re.compile(r'\b(remember|note|save|memorize)\b\s+(that\s+)?(.+)', re.IGNORECASE)
 _LEARN_ROUTINE = re.compile(r'\b(learn|save|record)\b\s+routine\s+(.*?)\s*(?:[=:,-]|as)\s+(.+)', re.IGNORECASE)
+_EXPLORE = re.compile(r"\b(explore|mapping|map\s+the\s+area|start\s+mapping|run\s+slam|scan)\b", re.IGNORECASE)
+_EXECUTE_ROUTINE = re.compile(r"\b(execute|run|start)\s+routine\s+(.+)", re.IGNORECASE)
 
 
 class CommandParser:
@@ -166,7 +188,7 @@ class CommandParser:
 
         Returns False for malformed, unknown, or out-of-range commands.
         """
-        if cmd.get("action") not in {"move", "rotate", "stop", "status"}:
+        if cmd.get("action") not in {"move", "rotate", "stop", "status", "nav_goal", "explore", "remember", "learn_routine", "execute_routine"}:
             return False
         lin = abs(cmd.get("linear", 0.0))
         ang = abs(cmd.get("angular", 0.0))
@@ -194,25 +216,41 @@ class CommandParser:
         ):
             return self._make(action="status", linear=0.0, angular=0.0, duration=-1, raw=text)
 
-        # --- MOVE BACKWARD (Check before forward to avoid overlap) ---
-        if _MOVE_BACKWARD.search(text):
-            return self._make(
-                action="move",
-                linear=-(lin_speed if lin_speed else 0.5),
-                angular=0.0,
-                duration=duration,
-                raw=text,
-            )
+        # --- NAVIGATION ---
+        # Look for motion intent and a known location name
+        nav_intent = re.search(r"\b(go(?:ing)?(?:\s+to)?|head(?:ing)?(?:\s+to)?|navigat(?:e|ing)(?:\s+to)?|proceed(?:ing)?(?:\s+to)?|take(?:\s+me)?(?:\s+to)?|move(?:ing)?(?:\s+to)?|return(?:ing)?(?:\s+to)?)\s+(the\s+)?(origin|dock|living_room|kitchen|bedroom|garage)\b", text, re.IGNORECASE)
+        if nav_intent:
+            loc = nav_intent.group(3).lower()
+            if loc == "dock":
+                loc = "origin"
+            cmd = self._make(action="nav_goal", linear=0.0, angular=0.0, duration=-1, raw=text)
+            cmd["target"] = loc
+            if loc in LOCATIONS:
+                cmd["coordinates"] = LOCATIONS[loc]
+            return cmd
 
-        # --- MOVE FORWARD ---
-        if _MOVE_FORWARD.search(text):
-            return self._make(
-                action="move",
-                linear=lin_speed if lin_speed else 0.5,
-                angular=0.0,
-                duration=duration,
-                raw=text,
-            )
+        for loc_name in LOCATIONS:
+            if re.search(r"\b" + re.escape(loc_name) + r"\b", text, re.IGNORECASE):
+                # Also accept if "go" or "navigate" or "head" is nearby
+                if any(w in text.lower() for w in ["go", "navigate", "head", "proceed", "move", "to"]):
+                    cmd = self._make(action="nav_goal", linear=0.0, angular=0.0, duration=-1, raw=text)
+                    cmd["target"] = loc_name
+                    cmd["coordinates"] = LOCATIONS[loc_name]
+                    return cmd
+
+        # --- EXPLORE ---
+        if _EXPLORE.search(text):
+            return self._make(action="explore", linear=0.0, angular=0.0, duration=-1, raw=text)
+
+        # --- EXECUTE ROUTINE ---
+        routine_exec_match = _EXECUTE_ROUTINE.search(text)
+        if routine_exec_match:
+            r_name = routine_exec_match.group(2).strip()
+            if r_name.endswith((".", "!", "?")):
+                r_name = r_name[:-1]
+            cmd = self._make(action="execute_routine", linear=0.0, angular=0.0, duration=-1, raw=text)
+            cmd["routine_name"] = r_name
+            return cmd
 
         # --- TURN LEFT ---
         if _TURN_LEFT.search(text):
@@ -230,6 +268,26 @@ class CommandParser:
                 action="rotate",
                 linear=0.0,
                 angular=-(ang_speed if ang_speed else 0.6),
+                duration=duration,
+                raw=text,
+            )
+
+        # --- MOVE BACKWARD (Check before forward to avoid overlap) ---
+        if _MOVE_BACKWARD.search(text):
+            return self._make(
+                action="move",
+                linear=-(lin_speed if lin_speed else 0.5),
+                angular=0.0,
+                duration=duration,
+                raw=text,
+            )
+
+        # --- MOVE FORWARD ---
+        if _MOVE_FORWARD.search(text):
+            return self._make(
+                action="move",
+                linear=lin_speed if lin_speed else 0.5,
+                angular=0.0,
                 duration=duration,
                 raw=text,
             )
@@ -302,10 +360,22 @@ class CommandParser:
         return 0.0, 0.0  # signals "use default"
 
     def _detect_duration(self, text: str) -> float:
-        """Extract 'for N seconds' from text. Returns 2.0 if not found."""
+        """Extract 'for N seconds' or 'N steps' from text. Returns 2.0 if not found."""
         m = _DURATION.search(text)
         if m:
             return float(m.group(1))
+
+        m_steps = _STEPS.search(text)
+        if m_steps:
+            val = m_steps.group(1).lower()
+            num = _WORD_TO_NUM.get(val, None)
+            if num is None:
+                try:
+                    num = float(val)
+                except ValueError:
+                    num = 2.0
+            return float(num * 1.0)
+
         return 2.0  # Default to 2.0 (matching docstring)
 
     def _clamp(self, cmd: dict) -> dict:

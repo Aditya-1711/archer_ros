@@ -156,9 +156,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 elif direction == "backward":
                     linear = -lin_scale
                 elif direction == "left":
-                    angular = ang_scale
+                    angular = 0.785
+                    duration = 1.0
                 elif direction == "right":
-                    angular = -ang_scale
+                    angular = -0.785
+                    duration = 1.0
                 elif direction == "stop":
                     linear = 0.0
                     angular = 0.0

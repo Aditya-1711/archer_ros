@@ -23,6 +23,10 @@ setup(
             # ros2 run archer_bridge bridge_node
             "bridge_node = archer_bridge.bridge_node:main",
             "depth_to_pointcloud = archer_bridge.depth_to_pointcloud:main",
+            "vision_node = archer_bridge.vision_node:main",
+            "safety_supervisor_node = archer_bridge.safety_supervisor_node:main",
+            "power_manager_node = archer_bridge.power_manager_node:main",
+            "watchdog_node = archer_bridge.watchdog_node:main",
         ],
     },
 )

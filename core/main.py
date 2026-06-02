@@ -200,22 +200,11 @@ def run_pipeline_step(
     """
     Execute one full pipeline step.
     
-    [MODIFIED] Returns structured format: {"speech": "...", "action": {...}}
+    [MODIFIED] Returns structured format: {"speech": "...", "actions": [...]}
     """
     logger.info(f"[Input] '{user_input}'")
 
-    # 1. Detect task type
-    task_type = _detect_task_type(user_input)
-    
-    # 2. OpenClaw routing (optional)
-    if openclaw.should_route(task_type):
-        oc_response = openclaw.query(user_input, task_type=task_type)
-        if oc_response:
-            tts.speak(oc_response)
-            return {"speech": oc_response, "action": {"type": "stop"}}
-
-    # 3. [MODIFIED] LLM → Natural language response with status injection
-    # First, load the status early so we can use it in the prompt
+    # Load Status & Diagnostics early
     curr_location = "unknown"
     battery = "100.0"
     cpu_temp = "45.0"
@@ -232,18 +221,27 @@ def run_pipeline_step(
                 diag = json.load(f)
                 battery = str(diag.get("battery_percent", "100.0"))
                 cpu_temp = str(diag.get("cpu_temp_c", "45.0"))
-                
     except Exception: pass
     
-    # Load Memory Bank
+    # Load Memory Bank (SQLite with JSON backup fallback)
     memory_bank = []
     memory_file = PROJECT_ROOT / "simulation" / "memory.json"
     try:
+        from ai.memory.memory_manager import MemoryManager
+        memory_mgr = MemoryManager()
+        memory_str = memory_mgr.retrieve_context(user_input)
+        # Pull legacy array for macro parsing if needed
         if memory_file.exists():
             with open(memory_file, "r") as f:
                 memory_bank = json.load(f)
-    except Exception: pass
-    memory_str = "\n".join([f"- {m}" for m in memory_bank]) if memory_bank else "No memories recorded."
+    except Exception as e:
+        logger.warning(f"Failed to query SQLite memory, falling back to JSON: {e}")
+        try:
+            if memory_file.exists():
+                with open(memory_file, "r") as f:
+                    memory_bank = json.load(f)
+        except Exception: pass
+        memory_str = "\n".join([f"- {m}" for m in memory_bank]) if memory_bank else "No memories recorded."
     
     # Load Routines Bank (Macros)
     routines_bank = {}
@@ -254,6 +252,171 @@ def run_pipeline_step(
                 routines_bank = json.load(f)
     except Exception: pass
     routines_str = "\n".join([f"- {name}: {seq}" for name, seq in routines_bank.items()]) if routines_bank else "No routines recorded."
+
+    # --- REFLEX SYSTEM (Ollama Latency Bypass) ---
+    from ai.parser.command_parser import CommandParser
+    direct_parser = CommandParser(enable_llm_fallback=False)
+    reflex_cmd = direct_parser.parse(user_input)
+    
+    if reflex_cmd["action"] != "unknown":
+        speech_output = ""
+        action_queue = []
+        
+        action_type = reflex_cmd["action"]
+        
+        if action_type == "stop":
+            speech_output = "Motion terminated."
+            action_queue.append({"type": "stop"})
+            
+        elif action_type == "status":
+            speech_output = f"System status nominal. Battery at {battery}%. Core temperature at {cpu_temp} degrees Celsius. Current location is {curr_location}."
+            action_queue.append({"type": "stop"})
+            
+        elif action_type == "move":
+            direction = "forward" if reflex_cmd["linear"] > 0 else "backward"
+            speech_output = "Acknowledged. Advancing." if direction == "forward" else "Acknowledged. Reversing."
+            action_queue.append({
+                "type": "cmd_vel",
+                "linear": reflex_cmd["linear"],
+                "angular": 0.0,
+                "duration": reflex_cmd.get("duration", 2.0)
+            })
+            
+        elif action_type == "rotate":
+            direction = "left" if reflex_cmd["angular"] > 0 else "right"
+            speech_output = f"Acknowledged. Rotating {direction}."
+            action_queue.append({
+                "type": "cmd_vel",
+                "linear": 0.0,
+                "angular": reflex_cmd["angular"],
+                "duration": reflex_cmd.get("duration", 2.0)
+            })
+            
+        elif action_type == "nav_goal":
+            target = reflex_cmd.get("target", "origin")
+            speech_output = f"Navigation target acquired. Proceeding to {target}."
+            action_queue.append({
+                "type": "nav_goal",
+                "target": target,
+                "coordinates": reflex_cmd.get("coordinates", [0.0, 0.0, 0.0])
+            })
+            
+        elif action_type == "explore":
+            speech_output = "Initiating area exploration and mapping protocol."
+            action_queue.append({"type": "explore"})
+            
+        elif action_type == "remember":
+            fact = reflex_cmd.get("fact", "")
+            if fact:
+                try:
+                    from ai.memory.memory_manager import MemoryManager
+                    memory_mgr = MemoryManager()
+                    memory_mgr.store_preference(fact, fact)
+                    memory_mgr.store_experience("remember_fact", f"Remembered: {fact}")
+                except Exception as e:
+                    logger.error(f"Failed to log to SQLite memory: {e}")
+                
+                # Legacy compatibility write
+                memory_bank.append(fact)
+                try:
+                    with open(memory_file, "w") as f:
+                        json.dump(memory_bank, f)
+                    speech_output = "Data logged to memory bank."
+                except Exception as e:
+                    logger.error(f"Failed to write memory: {e}")
+                    speech_output = "Failed to log data to memory bank."
+            else:
+                speech_output = "No information provided to remember."
+            action_queue.append({"type": "stop"})
+            
+        elif action_type == "learn_routine":
+            r_name = reflex_cmd.get("routine_name", "")
+            r_seq = reflex_cmd.get("routine_sequence", "")
+            if r_name and r_seq:
+                routines_bank[r_name] = r_seq
+                try:
+                    with open(routines_file, "w") as f:
+                        json.dump(routines_bank, f)
+                    speech_output = f"Routine {r_name} saved."
+                except Exception as e:
+                    logger.error(f"Failed to write routine: {e}")
+                    speech_output = f"Failed to save routine {r_name}."
+            else:
+                speech_output = "Routine description incomplete."
+            action_queue.append({"type": "stop"})
+            
+        elif action_type == "execute_routine":
+            r_name = reflex_cmd.get("routine_name", "")
+            if r_name in routines_bank:
+                r_seq = routines_bank[r_name]
+                speech_output = f"Executing routine {r_name}."
+                
+                # Split sequence into sentences and parse
+                import re as regex
+                sentences = regex.split(r'[.!?]+', r_seq)
+                for s in sentences:
+                    s = s.strip()
+                    if not s: continue
+                    parsed_sub = direct_parser.parse(s)
+                    if parsed_sub["action"] == "move":
+                        action_queue.append({
+                            "type": "cmd_vel",
+                            "linear": parsed_sub["linear"],
+                            "angular": 0.0,
+                            "duration": parsed_sub.get("duration", 2.0)
+                        })
+                    elif parsed_sub["action"] == "rotate":
+                        action_queue.append({
+                            "type": "cmd_vel",
+                            "linear": 0.0,
+                            "angular": parsed_sub["angular"],
+                            "duration": parsed_sub.get("duration", 2.0)
+                        })
+                    elif parsed_sub["action"] == "stop":
+                        action_queue.append({"type": "stop"})
+                    elif parsed_sub["action"] == "nav_goal":
+                        action_queue.append({
+                            "type": "nav_goal",
+                            "target": parsed_sub.get("target"),
+                            "coordinates": parsed_sub.get("coordinates")
+                        })
+                    elif parsed_sub["action"] == "explore":
+                        action_queue.append({"type": "explore"})
+                if not action_queue:
+                    action_queue.append({"type": "stop"})
+            else:
+                speech_output = f"Routine {r_name} not found in database."
+                action_queue.append({"type": "stop"})
+                
+        if speech_output and action_queue:
+            logger.info(f"[Reflex] Bypassing LLM. Speech: '{speech_output}', Actions: {[a.get('type') for a in action_queue]}")
+            tts.speak(speech_output)
+            full_response = {
+                "speech": speech_output,
+                "actions": action_queue
+            }
+            send_to_ros2(full_response)
+            return full_response
+
+    # 1. Detect task type (fallback)
+    task_type = _detect_task_type(user_input)
+    
+    # 2. OpenClaw routing (optional)
+    if openclaw.should_route(task_type):
+        oc_response = openclaw.query(user_input, task_type=task_type)
+        if oc_response:
+            tts.speak(oc_response)
+            return {"speech": oc_response, "actions": [{"type": "stop"}]}
+
+    # 3. LLM fallback
+    system_spec = ""
+    try:
+        spec_path = PROJECT_ROOT / "ARCHER_SYSTEM_SPEC.md"
+        if spec_path.exists():
+            with open(spec_path, "r", encoding="utf-8") as f:
+                system_spec = f.read()
+    except Exception as e:
+        logger.warning(f"Could not load system spec: {e}")
 
     system_prompt = """
 You are A.R.C.H.E.R., an advanced robotic command entity.
@@ -281,10 +444,10 @@ HIERARCHICAL PLANNING:
 - Example: User: "Patrol the house" -> You: "Initiating patrol sequence. Proceeding to kitchen. Proceeding to living room. Proceeding to garage."
 - Express sequences using short, sequential statements.
 
-MEMORY SYSTEM:
+MEMORY SYSTEM & HARDWARE STATUS:
 - You have a long-term memory bank.
 - If the user asks you to "remember" or "note" something, acknowledge the data storage. Example: "Data logged to memory bank."
-- Use your memory bank to answer user queries if applicable.
+- When answering queries about your CURRENT battery, temperature, or location, ALWAYS use the "CURRENT HARDWARE STATUS" section below. DO NOT use the memory bank for current status.
 
 LEARNING BY DEMONSTRATION (MACROS):
 - The user can teach you routines. If the user says "Learn routine [Name]: [Action Sequence]", acknowledge it: "Routine [Name] saved."
@@ -312,6 +475,9 @@ RESTRICTIONS:
 - Never be chatty.
 - Maintain robotic consistency at all times.
 
+SYSTEM ARCHITECTURE AND CAPABILITIES:
+{system_spec}
+
 CURRENT HARDWARE STATUS:
 - Location: {curr_location}
 - Battery: {battery}%
@@ -326,6 +492,7 @@ LEARNED ROUTINES:
 Your identity is a robotic control intelligence.
 """
     system_prompt = system_prompt.format(
+        system_spec=system_spec,
         curr_location=curr_location,
         battery=battery,
         cpu_temp=cpu_temp,
@@ -338,13 +505,11 @@ Your identity is a robotic control intelligence.
     # 4. Speak response
     tts.speak(speech_output)
 
-    # 5. [MODIFIED] Structured Command Parsing & Task Sequencing
+    # 5. Structured Command Parsing & Task Sequencing
     import re
     sentences = re.split(r'[.!?]+', speech_output)
     
     # Create a local sentence parser with LLM fallback disabled.
-    # This prevents conversational sentences (e.g. "Acknowledged", "Initiating protocol")
-    # from being mistakenly parsed by the LLM as random movement commands.
     from ai.parser.command_parser import CommandParser
     sentence_parser = CommandParser(enable_llm_fallback=False)
     
@@ -359,20 +524,20 @@ Your identity is a robotic control intelligence.
         # Enhanced Navigation detection per sentence
         target_location = None
         for loc in LOCATIONS:
-            if loc in s.lower():
+            if loc in s.lower() or (legacy_cmd.get("target") == loc):
                 target_location = loc
                 break
                 
-        movement_keywords = ["moving", "navigating", "heading", "proceeding", "way to"]
+        movement_keywords = ["moving", "navigating", "heading", "proceeding", "way to", "going", "traveling", "go"]
         is_moving = any(kw in s.lower() for kw in movement_keywords)
         
         structured_action = None
         # Priority 1: Navigation Goals
-        if target_location and is_moving and target_location != curr_location:
+        if (target_location and is_moving and target_location != curr_location) or legacy_cmd["action"] == "nav_goal":
             structured_action = {
                 "type": "nav_goal",
-                "target": target_location,
-                "coordinates": LOCATIONS[target_location]
+                "target": target_location or legacy_cmd.get("target", "origin"),
+                "coordinates": LOCATIONS.get(target_location or legacy_cmd.get("target", "origin"), [0.0, 0.0, 0.0])
             }
         # Priority 2: Direct Velocity Commands
         elif legacy_cmd["action"] in ["move", "rotate"]:
@@ -383,7 +548,7 @@ Your identity is a robotic control intelligence.
                 "duration": legacy_cmd.get("duration", 2.0)
             }
         # Priority 3: Exploration
-        elif "explore" in s.lower():
+        elif "explore" in s.lower() or legacy_cmd["action"] == "explore":
             structured_action = {"type": "explore"}
         # Priority 4: Memory Storage
         elif legacy_cmd["action"] == "remember":
@@ -399,12 +564,21 @@ Your identity is a robotic control intelligence.
         if structured_action:
             action_queue.append(structured_action)
 
-    # Execute Memory & Macro Storage locally (not sent to ROS2 Bridge)
+    # Execute Memory & Macro Storage locally
     filtered_queue = []
     for act in action_queue:
         if act["type"] == "remember":
             fact = act["fact"]
             if fact:
+                try:
+                    from ai.memory.memory_manager import MemoryManager
+                    memory_mgr = MemoryManager()
+                    memory_mgr.store_preference(fact, fact)
+                    memory_mgr.store_experience("remember_fact", f"Remembered: {fact}")
+                except Exception as e:
+                    logger.error(f"Failed to log to SQLite memory: {e}")
+                
+                # Legacy compatibility write
                 memory_bank.append(fact)
                 try:
                     with open(memory_file, "w") as f:
@@ -446,10 +620,27 @@ Your identity is a robotic control intelligence.
             }
             if not parser.is_safe(check_cmd):
                 logger.warning(f"Safety check failed: {check_cmd}")
-                # If any unsafe action, stop entirely
                 action_queue = [{"type": "stop"}]
                 full_response["actions"] = action_queue
                 break
+
+    # Log experience of any nav goals queued
+    for act in action_queue:
+        if act.get("type") == "nav_goal":
+            try:
+                from ai.memory.memory_manager import MemoryManager
+                memory_mgr = MemoryManager()
+                memory_mgr.store_experience("nav_goal", f"Initiated navigation target: {act.get('target', 'unknown')}")
+            except Exception: pass
+
+    # Log conversation history
+    try:
+        from ai.memory.memory_manager import MemoryManager
+        memory_mgr = MemoryManager()
+        memory_mgr.store_conversation("user", user_input)
+        memory_mgr.store_conversation("archer", speech_output)
+    except Exception as e:
+        logger.warning(f"Failed to log conversation to memory db: {e}")
 
     # 7. Route to ROS2
     send_to_ros2(full_response)
@@ -514,6 +705,19 @@ def main() -> None:
     tts = _get_tts() if not args.no_tts else _NullTTS()
     openclaw = _get_openclaw()
 
+    # Sync locations and consolidate DB
+    try:
+        from ai.memory.memory_manager import MemoryManager
+        memory_mgr = MemoryManager()
+        for loc_name, coords in LOCATIONS.items():
+            if len(coords) >= 2:
+                z_coord = coords[2] if len(coords) > 2 else 0.0
+                memory_mgr.store_location(loc_name, coords[0], coords[1], z_coord, loc_name)
+        memory_mgr.consolidate_db()
+        logger.info("Synced simulation locations to Long-Term Memory.")
+    except Exception as e:
+        logger.warning(f"Could not initialize memory/location database on startup: {e}")
+
     # Check Ollama availability
     if not llm.is_available():
         logger.warning(
@@ -521,6 +725,23 @@ def main() -> None:
             "Start it with: ollama serve\n"
             "Then pull the model: ollama pull llama3.1:8b"
         )
+
+    # Start background heartbeat thread
+    try:
+        import threading, time, json
+        def heartbeat():
+            hb_file = PROJECT_ROOT / "simulation" / "ai_heartbeat.json"
+            while True:
+                try:
+                    with open(hb_file, "w") as f:
+                        json.dump({"timestamp": time.time()}, f)
+                except Exception: pass
+                time.sleep(1.0)
+        t = threading.Thread(target=heartbeat, daemon=True)
+        t.start()
+        logger.info("Launched AI Core heartbeat task.")
+    except Exception as e:
+        logger.warning(f"Could not launch heartbeat task: {e}")
 
     logger.info("Archer online. Type 'quit' or Ctrl+C to exit.")
     tts.speak("Neural uplink established. Archer online and standing by, Boss.")
