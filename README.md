@@ -41,7 +41,7 @@ pip install -r requirements.txt
 - Gazebo Harmonic
 - Docker (optional)
 - Ollama (local LLM runtime)
-- WSL or Ubuntu version 24.04
+- WSL2 or Ubuntu version 24.04
 
 ---
 
@@ -64,7 +64,7 @@ pip install -r requirements.txt
    ```
    *Note: Set `ENABLE_GUI=true` in `.env` to see Gazebo.*
 
-### Option B: Native WSL or Ubuntu 24.04
+### Option B: Native WSL2 or Ubuntu 24.04
 1. **Build**:
    ```bash
    cd ros2_ws
