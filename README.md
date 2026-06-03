@@ -36,7 +36,7 @@ pip install -r requirements.txt
 
 
 ## 🧩 Requirements
-- Python 3.x
+- Python 3.12
 - ROS 2 Jazzy
 - Gazebo Harmonic
 - Docker (optional)
