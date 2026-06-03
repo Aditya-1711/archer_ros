@@ -1,16 +1,58 @@
 # A.R.C.H.E.R. ROS 2 Humanoid Simulation
 
-#### Option A: Docker (Portable)
-Archer is an Advanced Relationship & Command Handling Entity (Humanoid) running on a professional ROS 2 Jazzy stack and Gazebo Harmonic.
+Archer is an **Advanced Relationship & Command Handling Entity (Humanoid)** running on a professional ROS 2 Jazzy stack, Gazebo Harmonic, and a local host-based AI Neuro-Core. It is a ROS 2-powered humanoid robot simulation that integrates navigation, vision, and a local AI assistant for natural language control.
 
-## Project Structure (Lab 2 Refactor)
-- **`core/`**: AI Core (Persona, Voice, MCP Tools).
-- **`ros2_ws/src/archer_description/`**: Unified description package.
-  - `urdf/`: Xacro robot models.
-  - `launch/`: Simulation and inspection launch files.
-  - `config/`: Bridge and world configurations.
-  - `meshes/`: 3D assets.
-- **`ros2_ws/src/archer_bridge/`**: Communication layer between AI and ROS.
+---
+
+## 📦 Host Dependencies Installation
+Before launching the AI Core, you need to install the required Python packages on the host machine (Windows, Linux, or WSL2):
+```bash
+pip install -r requirements.txt
+```
+*Note: This installs `openai-whisper` for STT, `requests` for Ollama LLM integration, and other core libraries. Sound and audio playback dependencies are included.*
+
+### Prerequisites
+1. **Ollama**: Download and install Ollama. Run `ollama pull llama3.2:1b` 
+2. **Piper TTS**: If using text-to-speech, download a voice model ONNX file and update `piper.model_path` in [settings.yaml].
+
+---
+
+## 📂 Project Structure
+- **`ai/`**: Modular AI engine subsystems:
+  - `llm/`: Interface to local Llama models.
+  - `memory/`: Long-term SQLite database and FAISS vector index managers.
+  - `parser/`: Natural language command intent parsers.
+  - `stt/` & `tts/`: Whisper speech-to-text and Piper text-to-speech engine drivers.
+- **`core/`**: Orchestration brain (`main.py` main loop) coordination.
+- **`config/`**: Central parameter settings (`settings.yaml`).
+- **`dashboard/`**: Tactical control panel web server and client UI.
+- **`ros2_ws/src/`**: ROS 2 packages:
+  - `archer_bridge/`: Communication bridge node, safety supervisor, watchdog, power manager, and pointcloud utilities.
+  - `archer_description/`: Humanoid robot URDF/xacro, simulation worlds, meshes, and launch scripts.
+  - `archer_yolo/`: YOLOv8 object detection wrapper node.
+- **`simulation/`**: Gazebo world assets and RViz inspection configurations.
+
+---
+
+
+## 🧩 Requirements
+- Python 3.x
+- ROS 2 Jazzy
+- Gazebo Harmonic
+- Docker (optional)
+- Ollama (local LLM runtime)
+- WSL or Ubuntu version 24.04
+
+---
+
+## 🚀 Features
+- Natural language control via local LLM (Ollama)
+- Autonomous navigation using Nav2
+- Real-time object detection (YOLOv8)
+- Voice interaction (Whisper STT + Piper TTS)
+- Long-term memory with FAISS + SQLite
+- Interactive web dashboard for control & monitoring
+
 
 ## Quick Start Guide
 
@@ -22,7 +64,7 @@ Archer is an Advanced Relationship & Command Handling Entity (Humanoid) running 
    ```
    *Note: Set `ENABLE_GUI=true` in `.env` to see Gazebo.*
 
-### Option B: Native WSL2
+### Option B: Native WSL or Ubuntu 24.04
 1. **Build**:
    ```bash
    cd ros2_ws
@@ -85,10 +127,34 @@ Once the AI Core is running, you can give commands in plain English:
 | **Robot not moving** | Ensure the **AI Core** is running. Direct `nav_goal` commands require Archer to "see" first; try a `rotate` command to wake him up. |
 | **Simulation Lag** | Archer is optimized for Real-Time Factor (RTF) 1.0. If it's slow, close background browser tabs to free up CPU. |
 
+
 ---
 
-## 📂 Project Structure
-*   `core/`: Archer's LLM, TTS, and Command Processing logic.
-*   `docker/`: Orchestration and ROS 2 environment.
-*   `ros2_ws/`: Archer's physical humanoid definition (URDF) and Bridge Node.
-*   `simulation/`: Gazebo worlds, RViz configs, and shared command volumes.
+## 🧠 Core Architecture Details
+Archer utilizes several advanced host-side and ROS 2 services to function safely and intelligently:
+
+### 1. Vectorized Long-Term Memory (FAISS + SQLite)
+Archer's memory manager retrieves historical context using a hybrid architecture:
+- **FAISS (Facebook AI Similarity Search)** performs high-speed vector queries using 384-dimensional embeddings (via a local ONNX `all-MiniLM-L6-v2` transformer).
+- **SQLite Database** (`ai/memory/db/memory.db`) tracks metadata and visual observations.
+- **Dynamic Relevance Scoring**: Retrieval ranks memory records by a combined weight formula:
+  $$S = 0.5 \cdot \text{Similarity} + 0.3 \cdot \text{Importance} + 0.2 \cdot \text{Recency}$$
+- **Exponential Recency Decay**: Time-based decay factor: $R(\Delta t) = e^{-0.02 \cdot \Delta t}$ reduces focus on stale data over time.
+
+### 2. Node Watchdog & Safety Limits
+To prevent physical collisions or command lock-up, the `watchdog_node.py` enforces a safety heartbeat check:
+- **Safety Supervisor Node** ($0.5\text{s}$ timeout): Triggers `EMERGENCY_STOP`, killing physical joints and velocity outputs.
+- **Bridge Node** ($1.0\text{s}$ timeout): Zeroes velocity outputs immediately (`SAFE_STOP`).
+- **AI Core** ($5.0\text{s}$ timeout): Decelerates the humanoid and maintains safety locks.
+
+### 3. Battery Management & Docking Verification
+The `power_manager_node.py` runs a simulated battery discharge cycle. When low battery is detected or the user commands docking:
+1. The robot routes to the charging dock coordinate `[0.0, 0.0, 0.0]`.
+2. The power manager verifies alignment (distance $< 0.25\text{m}$).
+3. Verification checks charger contact pins and confirms charging current.
+4. If docking verification fails (e.g. bad contact), the robot reverses 0.6 meters, waits, and retries up to 3 times before halting and alerting the user.
+
+### 4. Vision Pipeline (`archer_yolo`)
+- The `yolo_node.py` processes raw camera frames using YOLOv8 via ONNX.
+- Detected objects, labels, and OCR text are published on `/archer/vision/detections`.
+- The `vision_node.py` handles rate-limited logging, updating SQLite visual memory when frame content changes or after 10.0 seconds of constant monitoring.
