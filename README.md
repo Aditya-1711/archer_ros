@@ -4,7 +4,7 @@ Archer is an **Advanced Relationship & Command Handling Entity (Humanoid)** runn
 
 ---
 
-## 📦 Host Dependencies Installation
+## Host Dependencies Installation
 Before launching the AI Core, you need to install the required Python packages on the host machine (Windows, Linux, or WSL2):
 ```bash
 pip install -r requirements.txt
@@ -17,7 +17,7 @@ pip install -r requirements.txt
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 - **`ai/`**: Modular AI engine subsystems:
   - `llm/`: Interface to local Llama models.
   - `memory/`: Long-term SQLite database and FAISS vector index managers.
@@ -35,7 +35,7 @@ pip install -r requirements.txt
 ---
 
 
-## 🧩 Requirements
+## Requirements
 - Python 3.12
 - ROS 2 Jazzy
 - Gazebo Harmonic
@@ -45,7 +45,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🚀 Features
+## Features
 - Natural language control via local LLM (Ollama)
 - Autonomous navigation using Nav2
 - Real-time object detection (YOLOv8)
@@ -108,7 +108,7 @@ Wait for Archer to say: *"Neural uplink established. Archer online and standing 
 
 ---
 
-## 🗣️ Interacting with Archer
+## Interacting with Archer
 
 Once the AI Core is running, you can give commands in plain English:
 
@@ -130,7 +130,7 @@ Once the AI Core is running, you can give commands in plain English:
 
 ---
 
-## 🧠 Core Architecture Details
+## Core Architecture Details
 Archer utilizes several advanced host-side and ROS 2 services to function safely and intelligently:
 
 ### 1. Vectorized Long-Term Memory (FAISS + SQLite)
