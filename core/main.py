@@ -208,6 +208,7 @@ def run_pipeline_step(
     curr_location = "unknown"
     battery = "100.0"
     cpu_temp = "45.0"
+    ambient_temp = "unknown"
     try:
         status_file = PROJECT_ROOT / "simulation" / "robot_status.json"
         if status_file.exists():
@@ -221,6 +222,7 @@ def run_pipeline_step(
                 diag = json.load(f)
                 battery = str(diag.get("battery_percent", "100.0"))
                 cpu_temp = str(diag.get("cpu_temp_c", "45.0"))
+                ambient_temp = str(diag.get("ambient_temp_c", "unknown"))
     except Exception: pass
     
     # Load Memory Bank (SQLite with JSON backup fallback)
@@ -388,6 +390,18 @@ def run_pipeline_step(
                 speech_output = f"Routine {r_name} not found in database."
                 action_queue.append({"type": "stop"})
                 
+        elif action_type == "start_recording":
+            speech_output = "Initiating demonstration recording."
+            action_queue.append({"type": "start_recording"})
+            
+        elif action_type == "stop_recording":
+            speech_output = "Demonstration recording stopped and saved."
+            action_queue.append({"type": "stop_recording"})
+            
+        elif action_type == "replay_demonstration":
+            speech_output = "Replaying demonstration."
+            action_queue.append({"type": "replay_demonstration"})
+                
         if speech_output and action_queue:
             logger.info(f"[Reflex] Bypassing LLM. Speech: '{speech_output}', Actions: {[a.get('type') for a in action_queue]}")
             tts.speak(speech_output)
@@ -409,14 +423,8 @@ def run_pipeline_step(
             return {"speech": oc_response, "actions": [{"type": "stop"}]}
 
     # 3. LLM fallback
-    system_spec = ""
-    try:
-        spec_path = PROJECT_ROOT / "ARCHER_SYSTEM_SPEC.md"
-        if spec_path.exists():
-            with open(spec_path, "r", encoding="utf-8") as f:
-                system_spec = f.read()
-    except Exception as e:
-        logger.warning(f"Could not load system spec: {e}")
+    # Omit the massive system spec to prevent context window overflow
+    system_spec = "A.R.C.H.E.R. v2.1 Local AI Pipeline. ROS2 Jazzy. Windows Host."
 
     system_prompt = """
 You are A.R.C.H.E.R., an advanced robotic command entity.
@@ -443,6 +451,11 @@ HIERARCHICAL PLANNING:
 - If given an abstract command (e.g., "Patrol the house", "Check the perimeter"), you MUST break it down into a sequence of concrete navigation goals.
 - Example: User: "Patrol the house" -> You: "Initiating patrol sequence. Proceeding to kitchen. Proceeding to living room. Proceeding to garage."
 - Express sequences using short, sequential statements.
+
+GENERAL QUESTIONS:
+- If the user asks a general question (e.g., about facts, science, or yourself), answer it precisely, factually, and in 1-2 sentences.
+- Maintain your robotic persona. Keep answers very brief.
+- If the user asks about the weather, you MUST respond by stating the current "Ambient Room Temperature" from your hardware telemetry, explaining that outside telemetry is unavailable.
 
 MEMORY SYSTEM & HARDWARE STATUS:
 - You have a long-term memory bank.
@@ -482,6 +495,7 @@ CURRENT HARDWARE STATUS:
 - Location: {curr_location}
 - Battery: {battery}%
 - Core Temperature: {cpu_temp} C
+- Ambient Room Temperature: {ambient_temp} C
 
 LONG-TERM MEMORY BANK:
 {memory_str}
@@ -496,6 +510,7 @@ Your identity is a robotic control intelligence.
         curr_location=curr_location,
         battery=battery,
         cpu_temp=cpu_temp,
+        ambient_temp=ambient_temp,
         memory_str=memory_str,
         routines_str=routines_str
     )
@@ -511,7 +526,9 @@ Your identity is a robotic control intelligence.
     
     # Create a local sentence parser with LLM fallback disabled.
     from ai.parser.command_parser import CommandParser
+    from ai.parser.htn_planner import HTNPlanner
     sentence_parser = CommandParser(enable_llm_fallback=False)
+    htn_planner = HTNPlanner(LOCATIONS)
     
     action_queue = []
     
@@ -532,14 +549,20 @@ Your identity is a robotic control intelligence.
         is_moving = any(kw in s.lower() for kw in movement_keywords)
         
         structured_action = None
-        # Priority 1: Navigation Goals
-        if (target_location and is_moving and target_location != curr_location) or legacy_cmd["action"] == "nav_goal":
+        # Priority 1: Abstract HTN Goals
+        if htn_planner.is_abstract_goal(s):
+            decomposed_actions = htn_planner.decompose(s)
+            action_queue.extend(decomposed_actions)
+            continue
+            
+        # Priority 2: Navigation Goals
+        elif (target_location and is_moving and target_location != curr_location) or legacy_cmd["action"] == "nav_goal":
             structured_action = {
                 "type": "nav_goal",
                 "target": target_location or legacy_cmd.get("target", "origin"),
                 "coordinates": LOCATIONS.get(target_location or legacy_cmd.get("target", "origin"), [0.0, 0.0, 0.0])
             }
-        # Priority 2: Direct Velocity Commands
+        # Priority 3: Direct Velocity Commands
         elif legacy_cmd["action"] in ["move", "rotate"]:
             structured_action = {
                 "type": "cmd_vel",
@@ -547,19 +570,26 @@ Your identity is a robotic control intelligence.
                 "angular": legacy_cmd["angular"],
                 "duration": legacy_cmd.get("duration", 2.0)
             }
-        # Priority 3: Exploration
+        # Priority 4: Exploration
         elif "explore" in s.lower() or legacy_cmd["action"] == "explore":
             structured_action = {"type": "explore"}
-        # Priority 4: Memory Storage
+        # Priority 5: Memory Storage
         elif legacy_cmd["action"] == "remember":
             structured_action = {"type": "remember", "fact": legacy_cmd.get("fact", "")}
-        # Priority 5: Macro Learning
+        # Priority 6: Macro Learning
         elif legacy_cmd["action"] == "learn_routine":
             structured_action = {
                 "type": "learn_routine", 
                 "routine_name": legacy_cmd.get("routine_name", ""),
                 "routine_sequence": legacy_cmd.get("routine_sequence", "")
             }
+        # Priority 7: LBD Commands
+        elif legacy_cmd["action"] == "start_recording":
+            structured_action = {"type": "start_recording"}
+        elif legacy_cmd["action"] == "stop_recording":
+            structured_action = {"type": "stop_recording"}
+        elif legacy_cmd["action"] == "replay_demonstration":
+            structured_action = {"type": "replay_demonstration"}
         
         if structured_action:
             action_queue.append(structured_action)

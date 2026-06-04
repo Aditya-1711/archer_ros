@@ -32,3 +32,5 @@ simulation/status.json
 # OS
 .DS_Store
 Thumbs.db
+simulation/ai_heartbeat.json
+simulation/ai_heartbeat.json
