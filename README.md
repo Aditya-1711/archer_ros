@@ -21,10 +21,24 @@ Archer is an Advanced Relationship & Command Handling Entity (Humanoid) running 
 - **Other Python Packages**: `rclpy`, `sounddevice`, `numpy`, `PyYAML`, `requests`
 
 ## MoSCoW Requirements Checklist
-- [x] **Must Have**: Autonomous ROS 2 Nav2 navigation, Local LLM integration, Speech-to-Text capability.
-- [x] **Should Have**: Gazebo Harmonic simulation, Web-based Tactical Dashboard, YOLOv8 Object Detection.
-- [x] **Could Have**: Memory-based Frontier Exploration, Semantic Mapping.
-- [ ] **Would Have**: Physical hardware deployment, Cloud-based LLM APIs (due to GDPR constraints), Learning by Demonstration.
+
+| Requirement | Priority | Status |
+| :--- | :--- | :--- |
+| Indoor SLAM | Must | ✅ Completed |
+| RGB Camera Pipeline | Must | ✅ Completed |
+| Multi-Sensor Integration | Must | ✅ Completed |
+| Autonomous Navigation (Nav2) | Must | ✅ Completed |
+| AI ↔ ROS2 Bridge | Must | ✅ Completed |
+| Local LLM Orchestration | Must | ✅ Completed |
+| Sensor Fusion | Should | ❌ Not Implemented |
+| Simple Planner ("Go there, find this") | Should | ✅ Completed |
+| Basic Human Interaction | Should | ✅ Completed |
+| Simple Task Execution | Should | ✅ Completed |
+| 3D Metric Mapping | Should | ✅ Completed |
+| Semantic Mapping | Could | ✅ Completed |
+| Memory System | Could | ✅ Completed |
+| Hierarchical Planning | Could | ✅ Completed |
+| Learning by Demonstration | Would | ✅ Completed |
 
 ## Quick Start Guide
 
