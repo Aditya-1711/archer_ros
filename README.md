@@ -24,7 +24,7 @@ Archer is an Advanced Relationship & Command Handling Entity (Humanoid) running 
 - [x] **Must Have**: Autonomous ROS 2 Nav2 navigation, Local LLM integration, Speech-to-Text capability.
 - [x] **Should Have**: Gazebo Harmonic simulation, Web-based Tactical Dashboard, YOLOv8 Object Detection.
 - [x] **Could Have**: Memory-based Frontier Exploration, Semantic Mapping.
-- [ ] **Won't Have**: Physical hardware deployment, Cloud-based LLM APIs (due to GDPR constraints).
+- [ ] **Would Have**: Physical hardware deployment, Cloud-based LLM APIs (due to GDPR constraints), Learning by Demonstration.
 
 ## Quick Start Guide
 
