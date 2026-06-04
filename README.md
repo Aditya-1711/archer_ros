@@ -12,6 +12,20 @@ Archer is an Advanced Relationship & Command Handling Entity (Humanoid) running 
   - `meshes/`: 3D assets.
 - **`ros2_ws/src/archer_bridge/`**: Communication layer between AI and ROS.
 
+## Dependencies
+- **OS**: Windows 11 (with WSL2) or Ubuntu 24.04
+- **ROS 2**: Jazzy Jalisco
+- **Simulation**: Gazebo Harmonic
+- **AI Core**: Python 3.12, `openai-whisper` (Local STT), `ollama` (Local LLM), `piper-tts` (Local TTS)
+- **Computer Vision**: `ultralytics` (YOLOv8)
+- **Other Python Packages**: `rclpy`, `sounddevice`, `numpy`, `PyYAML`, `requests`
+
+## MoSCoW Requirements Checklist
+- [x] **Must Have**: Autonomous ROS 2 Nav2 navigation, Local LLM integration, Speech-to-Text capability.
+- [x] **Should Have**: Gazebo Harmonic simulation, Web-based Tactical Dashboard, YOLOv8 Object Detection.
+- [x] **Could Have**: Memory-based Frontier Exploration, Semantic Mapping.
+- [ ] **Won't Have**: Physical hardware deployment, Cloud-based LLM APIs (due to GDPR constraints).
+
 ## Quick Start Guide
 
 ### Option A: Docker (Recommended)
