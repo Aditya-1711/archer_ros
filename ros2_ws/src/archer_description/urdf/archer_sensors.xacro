@@ -6,9 +6,9 @@
   <!-- ========================================================================= -->
 
   <!-- LiDAR (GPU Lidar for Harmonic) -->
-  <gazebo reference="Head">
-    <sensor type="gpu_lidar" name="head_lidar">
-      <pose>0 0 0.1 0 0 0</pose>
+  <gazebo reference="Pelvis">
+    <sensor type="gpu_lidar" name="body_lidar">
+      <pose>0 0 0.2 0 0 0</pose>
       <topic>/scan</topic>
       <visualize>false</visualize>
       <update_rate>10</update_rate>

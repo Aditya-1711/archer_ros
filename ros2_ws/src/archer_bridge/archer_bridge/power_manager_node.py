@@ -223,6 +223,7 @@ class ArcherPowerManager(Node):
         wd_status = "nominal"
         active_goal = None
         current_mode = "direct"
+        location = "unknown"
         
         if os.path.exists(status_file):
             try:
@@ -231,12 +232,23 @@ class ArcherPowerManager(Node):
                     wd_status = s_data.get("watchdog_status", "nominal")
                     active_goal = s_data.get("active_navigation_goal", None)
                     current_mode = s_data.get("current_operational_mode", "direct")
+                    location = s_data.get("location", "unknown")
             except: pass
             
         # Resources (simulate realistic values of process execution)
         import random
         cpu = round(12.5 + random.uniform(-2.0, 2.0), 1)
         ram = round(342.0 + random.uniform(-5.0, 5.0), 1)
+        
+        # Simulated ambient temperature based on location
+        base_temp = 22.0
+        if location == "garage":
+            base_temp = 18.5
+        elif location == "kitchen":
+            base_temp = 24.0
+        elif location == "bedroom":
+            base_temp = 21.0
+        ambient_temp = round(base_temp + random.uniform(-0.3, 0.3), 1)
         
         diag = {
             "cpu_usage_pct": cpu,
@@ -248,7 +260,8 @@ class ArcherPowerManager(Node):
             "memory_db_health": "nominal",
             "faiss_index_health": "active" if FAISS_AVAILABLE else "disabled",
             "watchdog_status": wd_status,
-            "current_operational_mode": current_mode
+            "current_operational_mode": current_mode,
+            "ambient_temp_c": ambient_temp
         }
         
         try:

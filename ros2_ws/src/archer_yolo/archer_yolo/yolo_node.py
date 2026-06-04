@@ -62,6 +62,7 @@ class YoloNode(Node):
         self._det_pub = self.create_publisher(String, '/detections', 10)
         self._ann_pub = self.create_publisher(Image, '/yolo/image', 5)
 
+        self._last_printed_names = set()
         self.get_logger().info('YOLO node ready — listening on /image_raw')
 
     # ------------------------------------------------------------------
@@ -75,6 +76,7 @@ class YoloNode(Node):
             return
 
         detections = []
+        current_names = set()
 
         if self._model is not None:
             try:
@@ -91,6 +93,12 @@ class YoloNode(Node):
                             'confidence': round(conf, 3),
                             'bbox':       [round(x1), round(y1), round(x2), round(y2)],
                         })
+                        current_names.add(cls_name)
+                if current_names and current_names != getattr(self, '_last_printed_names', set()):
+                    self.get_logger().info(f"I came across these objects: {', '.join(current_names)}")
+                    self._last_printed_names = current_names
+                elif not current_names:
+                    self._last_printed_names = set()
 
                 # Publish annotated image
                 annotated = results[0].plot()

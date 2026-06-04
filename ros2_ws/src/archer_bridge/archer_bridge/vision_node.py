@@ -63,7 +63,7 @@ class ArcherVisionNode(Node):
             
         try:
             from ai.memory.memory_manager import MemoryManager
-            db_file = os.path.join(self._project_root, "ai", "memory", "db", "memory.db")
+            db_file = os.path.join(self._project_root, "ai", "memory", "db", "memory.json")
             self._memory_mgr = MemoryManager(db_path=db_file)
             self._memory_available = True
             self.get_logger().info("Connected Vision node to Shared Long-Term Memory Database.")
@@ -76,7 +76,7 @@ class ArcherVisionNode(Node):
 
         # Rate control
         self._frame_count = 0
-        self._process_every_n_frames = 3 # Process at ~10 FPS (30 FPS input)
+        self._process_every_n_frames = 15 # Process at ~2 FPS (to save CPU in WSL)
         self._last_detected_objects = []
 
     def _discover_sim_path(self) -> str:

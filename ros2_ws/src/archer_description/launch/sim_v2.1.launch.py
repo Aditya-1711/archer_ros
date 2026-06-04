@@ -37,7 +37,7 @@ def generate_launch_description():
         package='archer_bridge',
         executable='safety_supervisor_node',
         output='screen',
-        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time', default='true')}]
+        parameters=[{'use_sim_time': True}]
     )
     
     # 3. Vision AI Node
@@ -45,7 +45,7 @@ def generate_launch_description():
         package='archer_bridge',
         executable='vision_node',
         output='screen',
-        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time', default='true')}]
+        parameters=[{'use_sim_time': True}]
     )
     
     # 4. Power Manager Node
@@ -53,7 +53,7 @@ def generate_launch_description():
         package='archer_bridge',
         executable='power_manager_node',
         output='screen',
-        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time', default='true')}]
+        parameters=[{'use_sim_time': True}]
     )
     
     # 5. System Watchdog Node
@@ -61,7 +61,15 @@ def generate_launch_description():
         package='archer_bridge',
         executable='watchdog_node',
         output='screen',
-        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time', default='true')}]
+        parameters=[{'use_sim_time': True}]
+    )
+    
+    # 6. Semantic Mapper Node
+    semantic_mapper = Node(
+        package='archer_bridge',
+        executable='semantic_mapper_node',
+        output='screen',
+        parameters=[{'use_sim_time': True}]
     )
     
     return LaunchDescription([
@@ -78,4 +86,5 @@ def generate_launch_description():
         vision_node,
         power_node,
         watchdog_node,
+        semantic_mapper,
     ])
