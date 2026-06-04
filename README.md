@@ -127,6 +127,33 @@ Once the AI Core is running, you can give commands in plain English:
 | **Robot not moving** | Ensure the **AI Core** is running. Direct `nav_goal` commands require Archer to "see" first; try a `rotate` command to wake him up. |
 | **Simulation Lag** | Archer is optimized for Real-Time Factor (RTF) 1.0. If it's slow, close background browser tabs to free up CPU. |
 
+---
+
+## MoSCoW Analysis
+Here is the status of the prioritized system requirements:
+
+### Must Have (100% Implemented)
+*   **Indoor 2D SLAM**: Configured via `slam_toolbox` in online asynchronous mode to generate maps from 2D LiDAR data.
+*   **RGB Camera**: Equipped with an RGBD camera sensor publishing raw image feeds to `/camera/image_raw` (or `/archer/camera/image_raw`).
+*   **Multi-sensor pipeline**: 2D LiDAR, IMU, Odometry, and Camera sensors bridged from Gazebo to ROS 2 via `ros_gz_bridge`.
+*   **Navigation (Nav2)**: Navigation 2 stack (`nav2_bringup`) runs path planning, costmap clearance, and goal routing.
+*   **AI ↔ ROS 2 bridge**: [bridge_node.py] reads parsed actions from the Host AI gateway and maps them to ROS 2 velocity publishers or Nav2 action goals.
+*   **Local LLM orchestration**: Master control loop [main.py] integrates Whisper (Speech-to-Text), Ollama (Local Llama 3.2), and Piper (Text-to-Speech).
+
+### Should Have (100% Implemented)
+*   **Sensor fusion**: Uses `robot_localization` with an EKF (Extended Kalman Filter) node to fuse raw `/odom` and `/imu` data.
+*   **Simple planner**: AI responses are sliced into sequential execution queues (e.g. *"move forward and then rotate left"* commands are executed sequentially).
+*   **Basic human interaction**: Bridge node monitors battery percentage and CPU/Core temperature telemetry, and the AI Core responds to hardware queries.
+*   **Simple task execution**: Command execution queue managed through `_action_queue` in the bridge node.
+*   **3D metric mapping**: Pointcloud feed bridged to `octomap_server` to generate 3D Voxel grids for collision checks.
+
+### Could Have (Modified Implementation)
+*   **Semantic mapping**: *Kimera* was omitted to keep the stack fully local and light. Instead, the bridge node uses bounding boxes defined in [locations.json] to dynamically tag the robot's real-time coordinate position (e.g. matching coordinate `[2.0, -6.5, 0.0]` to `"kitchen"`).
+*   **Memory system**: Archer implements a hybrid vectorized memory system (SQLite database + FAISS index) that stores conversations, user preferences, and visual tracking history.
+*   **Hierarchical planning**: Prompt directives instruct the LLM to expand high-level instructions (e.g., *"Patrol the house"*) into step-by-step target coordinates.
+
+### Would Have (100% Implemented)
+*   **Learning by demonstration**: Archer supports Natural Language Macros. You can teach Archer custom sequences by saying *"Learn routine Alpha: move forward. rotate left. stop."* to save them to `routines.json`, and run them by saying *"Execute routine Alpha"*.
 
 ---
 
