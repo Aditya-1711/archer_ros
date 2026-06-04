@@ -118,6 +118,15 @@ Visualization Manager:
         Value: /archer/camera/points
       Enabled: false
       Name: Raw PointCloud
+    - Class: rviz_default_plugins/MarkerArray
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /archer/semantic_markers
+      Enabled: true
+      Name: Semantic Mapping
   Enabled: true
   Global Options:
     Background Color: 10; 14; 23

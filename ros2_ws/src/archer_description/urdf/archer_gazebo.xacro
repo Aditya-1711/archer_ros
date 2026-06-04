@@ -22,23 +22,23 @@
       <topic>/cmd_vel</topic>
       <odom_topic>/odom</odom_topic>
       <tf_topic>/tf</tf_topic>
-      <publish_odom_tf>false</publish_odom_tf>
+      <publish_odom_tf>true</publish_odom_tf>
       <frame_id>odom</frame_id>
       <child_frame_id>base_link</child_frame_id>
     </plugin>
   </gazebo>
 
   <!-- Sensors Definition -->
-  <gazebo reference="Head">
+  <gazebo reference="head_camera_link">
     <!-- RGB Camera (Proven to work on WSL) -->
     <sensor name="head_camera" type="camera">
-      <pose>0.2 0 0.1 0 0 0</pose>
+      <pose>0 0 0 0 0 0</pose>
       <always_on>1</always_on>
-      <update_rate>10</update_rate>
+      <update_rate>2</update_rate>
       <visualize>true</visualize>
       <topic>/archer/camera/image_raw</topic>
-      <gz_frame_id>Head</gz_frame_id>
-      <frame_id>Head</frame_id>
+      <gz_frame_id>head_camera_link</gz_frame_id>
+      <frame_id>head_camera_link</frame_id>
       <camera>
         <horizontal_fov>1.047</horizontal_fov>
         <image>
@@ -52,13 +52,13 @@
 
     <!-- Depth Camera for 3D Voxels -->
     <sensor name="head_camera_depth" type="depth_camera">
-      <pose>0.2 0 0.1 0 0 0</pose>
+      <pose>0 0 0 0 0 0</pose>
       <always_on>1</always_on>
       <update_rate>5</update_rate>
       <visualize>false</visualize>
       <topic>/archer/camera/depth</topic>
-      <gz_frame_id>Head</gz_frame_id>
-      <frame_id>Head</frame_id>
+      <gz_frame_id>head_camera_link</gz_frame_id>
+      <frame_id>head_camera_link</frame_id>
       <camera>
         <horizontal_fov>1.047</horizontal_fov>
         <image>
@@ -68,16 +68,19 @@
         <clip><near>0.1</near><far>10.0</far></clip>
       </camera>
     </sensor>
+  </gazebo>
 
+  <gazebo reference="base_lidar_link">
+    <!-- Lidar on Head to ensure horizontal scans -->
     <!-- Lidar (CPU lidar - gpu_lidar silently fails in WSL without hardware GPU) -->
     <sensor name="base_lidar" type="gpu_lidar">
-      <pose>0.2 0 0.1 0 0 0</pose>
+      <pose>0 0 0 0 0 0</pose>
       <always_on>true</always_on>
       <visualize>true</visualize>
       <update_rate>10</update_rate>
       <topic>/scan</topic>
-      <gz_frame_id>Head</gz_frame_id>
-      <frame_id>Head</frame_id>
+      <gz_frame_id>base_lidar_link</gz_frame_id>
+      <frame_id>base_lidar_link</frame_id>
       <lidar>
         <scan>
           <horizontal>
@@ -88,7 +91,35 @@
           </horizontal>
         </scan>
         <range>
-          <min>0.45</min>
+          <min>0.40</min>
+          <max>12.0</max>
+          <resolution>0.01</resolution>
+        </range>
+      </lidar>
+    </sensor>
+  </gazebo>
+
+  <!-- Torso Lidar (360 degrees, ignores body) -->
+  <gazebo reference="torso_lidar_link">
+    <sensor name="torso_lidar" type="gpu_lidar">
+      <pose>0 0 0 0 0 0</pose>
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <update_rate>10</update_rate>
+      <topic>/scan_torso</topic>
+      <gz_frame_id>torso_lidar_link</gz_frame_id>
+      <frame_id>torso_lidar_link</frame_id>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.40</min>
           <max>12.0</max>
           <resolution>0.01</resolution>
         </range>

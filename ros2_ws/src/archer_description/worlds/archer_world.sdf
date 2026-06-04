@@ -8,6 +8,7 @@
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics" />
     <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands" />
     <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster" />
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
     <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
       <render_engine>ogre2</render_engine>
     </plugin>
@@ -89,171 +90,83 @@
          FURNITURE & ASSETS
          ======================================================================= -->
 
-    <!-- Living Room: Large TV & Console -->
-    <model name="entertainment_unit">
+    <!-- Living Room -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Sofa</uri>
+      <name>living_sofa</name>
+      <pose>0 5 0 0 0 0</pose>
       <static>true</static>
-      <pose>0 9.8 0.5 0 0 0</pose>
-      <link name="link">
-        <visual name="v_tv"><pose>0 0 1.0 0 0 0</pose><geometry><box><size>3 0.05 1.5</size></box></geometry><material><ambient>0 0 0 1</ambient><diffuse>0 0 0 1</diffuse><emissive>0.1 0.1 0.1 1</emissive></material></visual>
-        <visual name="v_stand"><pose>0 0 0 0 0 0</pose><geometry><box><size>3.5 0.4 0.4</size></box></geometry><material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material></visual>
-        <collision name="c_stand"><geometry><box><size>3.5 0.4 0.4</size></box></geometry></collision>
-      </link>
-    </model>
-
-    <!-- Living Room: L-Shaped Sofa -->
-    <model name="modern_sofa">
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Bookshelf</uri>
+      <name>living_bookshelf</name>
+      <pose>-3 9.8 0 0 0 0</pose>
       <static>true</static>
-      <pose>0 5 0.4 0 0 0</pose>
-      <link name="link">
-        <visual name="base"><geometry><box><size>4 1.2 0.4</size></box></geometry><material><ambient>0.2 0.2 0.2 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material></visual>
-        <visual name="back"><pose>0 0.5 0.4 0 0 0</pose><geometry><box><size>4 0.2 0.8</size></box></geometry><material><ambient>0.2 0.2 0.2 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material></visual>
-        <collision name="c"><geometry><box><size>4 1.2 0.8</size></box></geometry></collision>
-      </link>
-    </model>
-
-    <!-- Living Room: Coffee Table -->
-    <model name="coffee_table">
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Dining%20Table</uri>
+      <name>living_dining_table</name>
+      <pose>0 7 0 0 0 0</pose>
       <static>true</static>
-      <pose>0 7 0.2 0 0 0</pose>
-      <link name="link">
-        <visual name="v"><geometry><box><size>1.5 0.8 0.4</size></box></geometry><material><ambient>0.4 0.2 0 1</ambient><diffuse>0.4 0.2 0 1</diffuse></material></visual>
-        <collision name="c"><geometry><box><size>1.5 0.8 0.4</size></box></geometry></collision>
-      </link>
-    </model>
-
-    <!-- SOFA Initial (S) -->
-    <model name="initial_sofa">
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair</uri>
+      <name>dining_chair_1</name>
+      <pose>1 7 0 0 0 -1.57</pose>
       <static>true</static>
-      <pose>0 5 1.5 0 0 0</pose>
-      <link name="link">
-        <visual name="v1"><pose>0 0.15 0 0 0 1.57</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-        <visual name="v2"><pose>-0.2 0.1 0 0 0 0</pose><geometry><box><size>0.1 0.2 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-        <visual name="v3"><pose>0 0 0 0 0 1.57</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-        <visual name="v4"><pose>0.2 -0.1 0 0 0 0</pose><geometry><box><size>0.1 0.2 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-        <visual name="v5"><pose>0 -0.15 0 0 0 1.57</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-      </link>
-    </model>
-
-    <!-- TV Initial (T) -->
-    <model name="initial_tv">
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Chair</uri>
+      <name>dining_chair_2</name>
+      <pose>-1 7 0 0 0 1.57</pose>
       <static>true</static>
-      <pose>0 9.8 1.8 0 0 0</pose>
-      <link name="link">
-        <visual name="v1"><pose>0 0.15 0 0 0 1.57</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-        <visual name="v2"><pose>0 0 0 0 0 0</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-      </link>
-    </model>
+    </include>
 
-    <!-- BED Initial (B) -->
-    <model name="initial_bed">
+    <!-- Kitchen -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/KitchenSink</uri>
+      <name>kitchen_sink</name>
+      <pose>2 -6 0 0 0 1.57</pose>
       <static>true</static>
-      <pose>7 7 1.5 0 0 0</pose>
-      <link name="link">
-        <visual name="v1"><pose>-0.2 0 0 0 0 0</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-        <visual name="v2"><pose>0 0.15 0 0 0 1.57</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-        <visual name="v3"><pose>0 0 0 0 0 1.57</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-        <visual name="v4"><pose>0 -0.15 0 0 0 1.57</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-        <visual name="v5"><pose>0.2 0 0 0 0 0</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>1 1 1 1</emissive></material></visual>
-      </link>
-    </model>
-
-    <!-- Kitchen: Island & Tops -->
-    <model name="kitchen_island">
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oven</uri>
+      <name>kitchen_oven</name>
+      <pose>4 -6 0 0 0 1.57</pose>
       <static>true</static>
-      <pose>2 -5 0.5 0 0 0</pose>
-      <link name="link">
-        <visual name="v"><geometry><box><size>4 1.2 0.9</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-        <visual name="v_top"><pose>0 0 0.46 0 0 0</pose><geometry><box><size>4.1 1.3 0.04</size></box></geometry><material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material></visual>
-        <collision name="c"><geometry><box><size>4 1.2 0.9</size></box></geometry></collision>
-      </link>
-    </model>
-
-    <!-- Master Bedroom: Bed -->
-    <model name="master_bed">
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Refrigerator</uri>
+      <name>fridge</name>
+      <pose>2.0 -4.0 0 0 0 -1.57</pose>
       <static>true</static>
-      <pose>7 7 0.3 0 0 0</pose>
-      <link name="link">
-        <visual name="v_mattress"><geometry><box><size>2 2.2 0.4</size></box></geometry><material><ambient>0.9 0.9 0.9 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse></material></visual>
-        <visual name="v_headboard"><pose>0 1.1 0.5 0 0 0</pose><geometry><box><size>2.2 0.1 1</size></box></geometry><material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material></visual>
-        <collision name="c"><geometry><box><size>2 2.2 0.4</size></box></geometry></collision>
-      </link>
-    </model>
+    </include>
 
-    <!-- Master Bedroom: Wardrobe -->
-    <model name="master_wardrobe">
+    <!-- Bedrooms / Bathrooms -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Bed</uri>
+      <name>master_bed</name>
+      <pose>7 7 0 0 0 0</pose>
       <static>true</static>
-      <pose>9 7 1.2 0 0 0</pose>
-      <link name="link">
-        <visual name="v"><geometry><box><size>0.6 3 2.4</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-        <collision name="c"><geometry><box><size>0.6 3 2.4</size></box></geometry></collision>
-      </link>
-    </model>
-
-    <!-- MASTER BEDROOM Initial (M) -->
-    <model name="initial_master_bedroom">
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Toilet</uri>
+      <name>master_toilet</name>
+      <pose>5 8 0 0 0 1.57</pose>
       <static>true</static>
-      <pose>7 9 2.5 0 0 0</pose>
-      <link name="link">
-        <visual name="v1"><pose>-0.2 0 0 0 0 0</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 0 1 1</ambient><diffuse>1 0 1 1</diffuse><emissive>1 0 1 1</emissive></material></visual>
-        <visual name="v2"><pose>0.2 0 0 0 0 0</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>1 0 1 1</ambient><diffuse>1 0 1 1</diffuse><emissive>1 0 1 1</emissive></material></visual>
-        <visual name="v3"><pose>0 0.15 0 0 0 0.78</pose><geometry><box><size>0.1 0.3 0.05</size></box></geometry><material><ambient>1 0 1 1</ambient><diffuse>1 0 1 1</diffuse><emissive>1 0 1 1</emissive></material></visual>
-        <visual name="v4"><pose>0 0.15 0 0 0 -0.78</pose><geometry><box><size>0.1 0.3 0.05</size></box></geometry><material><ambient>1 0 1 1</ambient><diffuse>1 0 1 1</diffuse><emissive>1 0 1 1</emissive></material></visual>
-      </link>
-    </model>
+    </include>
 
-    <!-- KITCHEN Initial (K) -->
-    <model name="initial_kitchen">
+    <!-- Outside / Garage -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Stop%20Sign</uri>
+      <pose>6.0 8.0 0 0 0 0</pose>
       <static>true</static>
-      <pose>2 -6.5 2.5 0 0 0</pose>
-      <link name="link">
-        <visual name="v1"><pose>-0.2 0 0 0 0 0</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>0 1 0 1</ambient><diffuse>0 1 0 1</diffuse><emissive>0 1 0 1</emissive></material></visual>
-        <visual name="v2"><pose>0.1 0.1 0 0 0 -0.78</pose><geometry><box><size>0.1 0.3 0.05</size></box></geometry><material><ambient>0 1 0 1</ambient><diffuse>0 1 0 1</diffuse><emissive>0 1 0 1</emissive></material></visual>
-        <visual name="v3"><pose>0.1 -0.1 0 0 0 0.78</pose><geometry><box><size>0.1 0.3 0.05</size></box></geometry><material><ambient>0 1 0 1</ambient><diffuse>0 1 0 1</diffuse><emissive>0 1 0 1</emissive></material></visual>
-      </link>
-    </model>
-
-    <!-- LIVING ROOM Initial (L) -->
-    <model name="initial_living_room">
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/SUV</uri>
+      <name>suv_car</name>
+      <pose>-7.5 0 0.0 0 0 0</pose>
       <static>true</static>
-      <pose>0 1 2.5 0 0 0</pose>
-      <link name="link">
-        <visual name="v1"><pose>-0.2 0 0 0 0 0</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>0 0 1 1</ambient><diffuse>0 0 1 1</diffuse><emissive>0 0 1 1</emissive></material></visual>
-        <visual name="v2"><pose>0 -0.15 0 0 0 1.57</pose><geometry><box><size>0.1 0.3 0.05</size></box></geometry><material><ambient>0 0 1 1</ambient><diffuse>0 0 1 1</diffuse><emissive>0 0 1 1</emissive></material></visual>
-      </link>
-    </model>
-
-    <!-- GARAGE Initial (G) -->
-    <model name="initial_garage">
-      <static>true</static>
-      <pose>-7.5 5 2.5 0 0 0</pose>
-      <link name="link">
-        <visual name="v1"><pose>0 0.15 0 0 0 1.57</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse><emissive>0.5 0.5 0.5 1</emissive></material></visual>
-        <visual name="v2"><pose>-0.2 0 0 0 0 0</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse><emissive>0.5 0.5 0.5 1</emissive></material></visual>
-        <visual name="v3"><pose>0 -0.15 0 0 0 1.57</pose><geometry><box><size>0.1 0.4 0.05</size></box></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse><emissive>0.5 0.5 0.5 1</emissive></material></visual>
-        <visual name="v4"><pose>0.2 -0.05 0 0 0 0</pose><geometry><box><size>0.1 0.2 0.05</size></box></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse><emissive>0.5 0.5 0.5 1</emissive></material></visual>
-      </link>
-    </model>
-
-    <!-- Garage: Vehicles (Placeholder Boxes) -->
-    <model name="garage_vehicle">
-      <static>true</static>
-      <pose>-7.5 0 0.7 0 0 0</pose>
-      <link name="link">
-        <visual name="v"><geometry><box><size>2 4 1.4</size></box></geometry><material><ambient>0.2 0.2 0.8 1</ambient><diffuse>0.2 0.2 0.8 1</diffuse></material></visual>
-        <collision name="c"><geometry><box><size>2 4 1.4</size></box></geometry></collision>
-      </link>
-    </model>
-
-    <!-- Outdoor: Patio Furniture -->
-    <model name="patio_table">
-      <static>true</static>
-      <pose>0 -15 0.4 0 0 0</pose>
-      <link name="link">
-        <visual name="v"><geometry><cylinder><radius>1.5</radius><length>0.05</length></cylinder></geometry><material><ambient>0.4 0.2 0 1</ambient><diffuse>0.4 0.2 0 1</diffuse></material></visual>
-        <visual name="v_leg"><pose>0 0 -0.4 0 0 0</pose><geometry><cylinder><radius>0.1</radius><length>0.8</length></cylinder></geometry><material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material></visual>
-        <collision name="c"><geometry><cylinder><radius>1.5</radius><length>0.05</length></cylinder></geometry></collision>
-      </link>
-    </model>
-
+    </include>
   </world>
 </sdf>

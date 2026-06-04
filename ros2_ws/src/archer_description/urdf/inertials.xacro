@@ -37,8 +37,8 @@
   <!-- Ballast Inertia Macro (Virtual Gyroscope for Extreme Stability) -->
   <xacro:macro name="ballast_inertia" params="m w h d">
     <inertial>
-      <!-- Optimized anchor: -0.8m for rock-solid stability without simulation glitches -->
-      <origin xyz="0 0 -0.8" rpy="0 0 0"/>
+      <!-- Standard anchor to avoid physics solver glitches -->
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${m}"/>
       <inertia ixx="100.0" ixy="0.0" ixz="0.0"
                iyy="100.0" iyz="0.0"

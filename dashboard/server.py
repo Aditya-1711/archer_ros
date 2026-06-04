@@ -42,7 +42,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         # Suppress spammy log outputs for status polling
-        if "GET /api/status" in args[0]:
+        if args and isinstance(args[0], str) and "GET /api/status" in args[0]:
             return
         super().log_message(format, *args)
 
@@ -97,6 +97,37 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "coordinates": coords
             }
             self.wfile.write(json.dumps(payload).encode("utf-8"))
+            return
+
+        # 1.5 API Memory Endpoint
+        elif parsed_path.path == "/api/memory":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            
+            memories = []
+            try:
+                db_file = PROJECT_ROOT / "ai" / "memory" / "db" / "memory.json"
+                if db_file.exists():
+                    with open(db_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        visuals = data.get("visual_memory", [])
+                        
+                        # Get last 15, reverse them (descending order)
+                        recent = list(reversed(visuals[-15:]))
+                        for r in recent:
+                            ts = r.get("timestamp", "")
+                            ts = ts.split(".")[0].replace("T", " ") if ts else ""
+                            memories.append({
+                                "timestamp": ts,
+                                "object": r.get("object_name", ""),
+                                "location": r.get("location", ""),
+                                "desc": r.get("scene_description", "")
+                            })
+            except Exception as e:
+                print(f"[Dashboard] Error reading memory DB: {e}")
+                
+            self.wfile.write(json.dumps({"memories": memories}).encode("utf-8"))
             return
             
         # Default file server
@@ -204,9 +235,43 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, "Failed to write command to ROS2 bridge")
             return
 
+        # 4. Asynchronous TTS Speak Endpoint
+        elif parsed_path.path == "/api/speak":
+            text = data.get("text", "")
+            if text:
+                print(f"[Dashboard] External node requested TTS: '{text}'")
+                try:
+                    # Non-blocking TTS execution
+                    import threading
+                    threading.Thread(target=tts.say, args=(text,), daemon=True).start()
+                    
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "success"}).encode("utf-8"))
+                except Exception as e:
+                    self.send_error(500, f"TTS execution failed: {e}")
+            else:
+                self.send_error(400, "Missing 'text' field")
+            return
+
         self.send_error(404, "Endpoint not found")
 
+def _heartbeat_loop():
+    import threading, time
+    hb_file = PROJECT_ROOT / "simulation" / "ai_heartbeat.json"
+    while True:
+        try:
+            with open(hb_file, "w") as f:
+                json.dump({"timestamp": time.time(), "status": "online"}, f)
+        except Exception:
+            pass
+        time.sleep(1.0)
+
 def run():
+    import threading
+    threading.Thread(target=_heartbeat_loop, daemon=True).start()
+    
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", PORT), DashboardHandler) as httpd:
         print(f"\n======================================================================")

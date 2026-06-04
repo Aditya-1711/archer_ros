@@ -723,11 +723,19 @@
             </div>
         </div>
 
-        <!-- Row 4: Semantic Quick Goals Grid -->
+    <!-- Row 4: Semantic Quick Goals Grid -->
         <div class="panel locations-panel">
             <div class="panel-title">SEMANTIC SPATIAL NAVIGATION TARGETS</div>
             <div class="rooms-grid" id="rooms-grid">
                 <!-- Javascript populated -->
+            </div>
+        </div>
+
+        <!-- Row 5: Visual Memory Log -->
+        <div class="panel memory-panel" style="grid-column: 1 / -1;">
+            <div class="panel-title">YOLO VISUAL MEMORY DETECTIONS</div>
+            <div class="memory-log" id="memory-list" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
+                <div style="color: var(--text-muted);">Waiting for visual telemetry...</div>
             </div>
         </div>
 
@@ -767,13 +775,8 @@
                 document.getElementById('cpu-val').innerText = `${status.cpu_temp.toFixed(1)}°C`;
                 document.getElementById('loc-val').innerText = status.location.toUpperCase();
                 
-                const stateValEl = document.getElementById('state-val');
-                stateValEl.innerText = status.status.toUpperCase();
-                if (status.status.toLowerCase() === 'nominal') {
-                    stateValEl.className = 'diag-value nominal';
-                } else {
-                    stateValEl.className = 'diag-value warn';
-                }
+                document.getElementById('state-val').className = 'diag-value ' + (status.status === 'nominal' ? 'nominal' : 'critical');
+                document.getElementById('state-val').innerText = status.status.toUpperCase();
 
                 // Update Map Robot Marker Position
                 // Note: SVG maps +x to right and +y to down, so we flip y sign for correct mapping coordinate visualization!
@@ -956,11 +959,37 @@
             chatLog.scrollTop = chatLog.scrollHeight;
         }
 
+        // Fetch Memory
+        async function fetchMemory() {
+            try {
+                const memRes = await fetch('/api/memory');
+                const memData = await memRes.json();
+                
+                const memList = document.getElementById('memory-list');
+                if (memData.memories && memData.memories.length > 0) {
+                    let html = '';
+                    memData.memories.forEach(m => {
+                        html += `<div style="margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
+                            <span style="color: #00f2fe;">[${m.timestamp}]</span> 
+                            <span style="color: #00ff87; font-weight: bold;">[${m.object}]</span> 
+                            <span style="color: #a8b2c1;">(${m.location})</span>: 
+                            <span style="color: #d1d5db;">${m.desc}</span>
+                        </div>`;
+                    });
+                    memList.innerHTML = html;
+                }
+            } catch (e) {
+                console.log("Memory API disconnected");
+            }
+        }
+
         // Init
         renderRoomMarkers();
         renderRoomCards();
         fetchStatus();
+        fetchMemory();
         setInterval(fetchStatus, 500); // 2Hz updates
+        setInterval(fetchMemory, 2000); // 0.5Hz updates
 
     </script>
 </body>

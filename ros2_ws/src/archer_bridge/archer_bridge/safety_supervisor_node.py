@@ -26,7 +26,7 @@ class ArcherSafetySupervisor(Node):
         # ROS parameters or constants
         self._warning_threshold = 0.8  # meters
         self._stop_threshold = 0.3     # meters
-        self._sensor_timeout = 0.5     # seconds
+        self._sensor_timeout = 5.0     # seconds (increased for slow simulation)
         
         # Publishers & Subscribers
         self._cmd_vel_sub = self.create_subscription(

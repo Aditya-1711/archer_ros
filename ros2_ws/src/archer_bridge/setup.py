@@ -27,6 +27,9 @@ setup(
             "safety_supervisor_node = archer_bridge.safety_supervisor_node:main",
             "power_manager_node = archer_bridge.power_manager_node:main",
             "watchdog_node = archer_bridge.watchdog_node:main",
+            "random_explorer = archer_bridge.random_explorer:main",
+            "semantic_mapper_node = archer_bridge.semantic_mapper_node:main",
+            "demonstration_node = archer_bridge.demonstration_node:main",
         ],
     },
 )

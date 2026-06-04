@@ -6,7 +6,7 @@ import math
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
-from std_msgs.msg import String, Float64MultiArray, Header
+from std_msgs.msg import String, Float64MultiArray, Header, Bool
 import time
 from nav_msgs.msg import Odometry
 from tf2_ros import TransformException
@@ -14,6 +14,7 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
+from std_srvs.srv import Trigger
 
 logger = logging.getLogger("archer.bridge")
 
@@ -28,6 +29,7 @@ class ArcherBridgeNode(Node):
         # Publishers & Subscribers
         self._vel_pub = self.create_publisher(Twist, "/archer/cmd_vel_raw", 10)
         self._goal_pub = self.create_publisher(PoseStamped, "/goal_pose", 10)
+        self._explorer_enable_pub = self.create_publisher(Bool, "/explorer/enable", 10)
         self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self._odom_sub = self.create_subscription(Odometry, '/odom', self._odom_callback, 10)
         self._cmd_vel_sub = self.create_subscription(Twist, "/cmd_vel", self._cmd_vel_callback, 10)
@@ -39,6 +41,11 @@ class ArcherBridgeNode(Node):
         # tf2 listener
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
+        
+        # Services
+        self._demo_start_client = self.create_client(Trigger, '/demonstration/start')
+        self._demo_stop_client = self.create_client(Trigger, '/demonstration/stop')
+        self._demo_replay_client = self.create_client(Trigger, '/demonstration/replay')
 
         
         # State
@@ -61,6 +68,8 @@ class ArcherBridgeNode(Node):
         self._current_x = 0.0
         self._current_y = 0.0
         self._latest_cmd_vel = Twist()
+        self._nav_goal_active = False
+        self._nav_goal_success = False
         
         # Simulated Diagnostics
         self._battery = 100.0
@@ -126,19 +135,19 @@ class ArcherBridgeNode(Node):
         # 1. Continuous Velocity Publishing & Queue Management
         now = self.get_clock().now().nanoseconds / 1e9
         
-        # Check if active nav_goal is reached
+        # Check if active nav_goal is reached via Nav2 feedback
         if self._active_action is not None and self._active_action.get("type") == "nav_goal":
-            tx = self._active_action.get("target_x")
-            ty = self._active_action.get("target_y")
-            if tx is not None and ty is not None:
-                dist = math.hypot(self._current_x - tx, self._current_y - ty)
-                if dist < 0.5:
-                    self.get_logger().info(f"Goal reached! Distance to target: {dist:.2f}m. Finishing action.")
-                    self._active_action = None
-                    self._vel_pub.publish(Twist()) # Stop moving
-        
-        # If we have an active action and its duration elapsed
-        if self._active_action is not None and self._stop_time > 0 and now >= self._stop_time:
+            if not self._nav_goal_active and self._nav_goal_success:
+                self.get_logger().info("Nav2 Goal reached successfully! Finishing action.")
+                self._active_action = None
+                self._nav_goal_success = False
+            elif not self._nav_goal_active and not self._nav_goal_success and "target_x" in self._active_action:
+                # Goal failed or aborted
+                self.get_logger().warn("Nav2 Goal failed or was aborted. Finishing action.")
+                self._active_action = None
+                
+        # If we have an active non-nav action and its duration elapsed
+        if self._active_action is not None and self._active_action.get("type") != "nav_goal" and self._stop_time > 0 and now >= self._stop_time:
             self.get_logger().info("Action duration elapsed. Finishing action.")
             self._active_action = None
             self._vel_pub.publish(Twist()) # Stop moving
@@ -146,7 +155,7 @@ class ArcherBridgeNode(Node):
         # Process next action in queue if idle
         if self._active_action is None and len(self._action_queue) > 0:
             self._active_action = self._action_queue.pop(0)
-            act_type = self._active_action.get("type")
+            act_type = self._active_action.get("type") or self._active_action.get("action")
             
             if act_type in ["cmd_vel", "move", "rotate"]:
                 twist = Twist()
@@ -165,6 +174,12 @@ class ArcherBridgeNode(Node):
             elif act_type == "stop":
                 self._active_action = None
                 self._vel_pub.publish(Twist()) # Zero
+                
+                # Disable explorer
+                msg = Bool()
+                msg.data = False
+                self._explorer_enable_pub.publish(msg)
+                
                 self.get_logger().info(">>> QUEUE: STOP")
                 
             elif act_type == "nav_goal":
@@ -184,32 +199,47 @@ class ArcherBridgeNode(Node):
                 
                 # Send the actual Action Goal to Nav2
                 if self._nav_client.wait_for_server(timeout_sec=1.0):
-                    self._nav_client.send_goal_async(goal_msg)
+                    send_goal_future = self._nav_client.send_goal_async(goal_msg)
+                    send_goal_future.add_done_callback(self._nav_goal_response_callback)
+                    self._nav_goal_active = True
+                    self._nav_goal_success = False
                     self.get_logger().info(f">>> QUEUE: Sent Nav2 Action Goal: {coords}")
                 else:
                     self.get_logger().warn(f">>> QUEUE: Nav2 Action Server not available! Dropping goal: {coords}")
+                    self._active_action = None
 
-                # Save target coordinates for distance monitoring
-                self._active_action["target_x"] = float(coords[0])
-                self._active_action["target_y"] = float(coords[1])
-                # Set a safety timeout of 60.0 seconds
-                self._stop_time = now + 60.0
+                # Save target coordinates
+                if self._active_action is not None:
+                    self._active_action["target_x"] = float(coords[0])
+                    self._active_action["target_y"] = float(coords[1])
+                    self._stop_time = now + 120.0 # Maximum 2 min wait
                 
             elif act_type == "explore":
-                self.get_logger().info(">>> QUEUE: Exploration triggered - generating random mapping path")
-                import random
-                coverage_actions = []
-                for i in range(10):
-                    rx = round(random.uniform(-3.0, 3.0), 2)
-                    ry = round(random.uniform(-3.0, 3.0), 2)
-                    coverage_actions.append({
-                        "type": "nav_goal",
-                        "target": f"random_frontier_{i}",
-                        "coordinates": [rx, ry, 0.0]
-                    })
+                self.get_logger().info(">>> QUEUE: Exploration triggered - enabling smart explorer node")
                 
-                # Prepend the generated sequence to the front of the queue
-                self._action_queue = coverage_actions + self._action_queue
+                # Enable the standalone smart_explorer node
+                msg = Bool()
+                msg.data = True
+                self._explorer_enable_pub.publish(msg)
+                
+                self._active_action = None
+
+            elif act_type == "start_recording":
+                self.get_logger().info(">>> QUEUE: Start LBD recording")
+                if self._demo_start_client.wait_for_service(timeout_sec=1.0):
+                    self._demo_start_client.call_async(Trigger.Request())
+                self._active_action = None
+                
+            elif act_type == "stop_recording":
+                self.get_logger().info(">>> QUEUE: Stop LBD recording")
+                if self._demo_stop_client.wait_for_service(timeout_sec=1.0):
+                    self._demo_stop_client.call_async(Trigger.Request())
+                self._active_action = None
+                
+            elif act_type == "replay_demonstration":
+                self.get_logger().info(">>> QUEUE: Replay LBD recording")
+                if self._demo_replay_client.wait_for_service(timeout_sec=1.0):
+                    self._demo_replay_client.call_async(Trigger.Request())
                 self._active_action = None
 
         # Continuous publishing for active twist
@@ -248,6 +278,29 @@ class ArcherBridgeNode(Node):
                 
         except Exception as e:
             self.get_logger().error(f"Bridge error: {e}")
+
+    def _nav_goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Nav2 Goal rejected.')
+            self._nav_goal_active = False
+            self._nav_goal_success = False
+            return
+
+        self.get_logger().info('Nav2 Goal accepted, waiting for result...')
+        get_result_future = goal_handle.get_result_async()
+        get_result_future.add_done_callback(self._nav_goal_result_callback)
+
+    def _nav_goal_result_callback(self, future):
+        result = future.result()
+        status = result.status
+        if status == 4: # SUCCEEDED
+            self.get_logger().info('Nav2 Goal succeeded!')
+            self._nav_goal_success = True
+        else:
+            self.get_logger().warn(f'Nav2 Goal failed with status: {status}')
+            self._nav_goal_success = False
+        self._nav_goal_active = False
 
     def _cmd_vel_callback(self, msg: Twist):
         self._latest_cmd_vel = msg

@@ -77,7 +77,7 @@ def generate_launch_description():
     spawn_robot = Node(
         package='ros_gz_sim',
         executable='create',
-        arguments=['-topic', 'robot_description', '-name', 'archer_v2', '-z', '1.0'],
+        arguments=['-topic', 'robot_description', '-name', 'archer_v2', '-z', '0.15'],
         output='screen',
     )
 
@@ -93,11 +93,12 @@ def generate_launch_description():
         arguments=[
             # cmd_vel: ROS → GZ
             '/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
-            # Clock: GZ → ROS (remapped to /clock below)
-            '/world/archer_world/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+            # Clock: GZ → ROS
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
             # odom, scan, tf, imu, joint_states: GZ → ROS
             '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/scan_torso@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
             '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
@@ -106,61 +107,15 @@ def generate_launch_description():
             '/archer/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             '/archer/camera/depth@sensor_msgs/msg/Image[gz.msgs.Image',
         ],
-        remappings=[
-            ('/world/archer_world/clock', '/clock'),
-        ],
-        parameters=[{'use_sim_time': False}],
-        output='screen',
-    )
-
-
-    # ─────────────────────────────────────────────────────────────────
-    # 6. Controllers (chained after spawn_robot exits)
-    # ─────────────────────────────────────────────────────────────────
-
-    joint_state_broadcaster_spawner = Node(
-        package='controller_manager',
-        executable='spawner',
-        arguments=['joint_state_broadcaster', '--controller-manager-timeout', '60', '--switch-timeout', '60'],
         parameters=[{'use_sim_time': use_sim_time}],
-    )
-
-    load_joint_state_broadcaster = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=spawn_robot,
-            on_exit=[TimerAction(period=5.0, actions=[joint_state_broadcaster_spawner])],
-        )
-    )
-
-    load_position_controller = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=joint_state_broadcaster_spawner,
-            on_exit=[
-                Node(
-                    package='controller_manager',
-                    executable='spawner',
-                    arguments=['forward_position_controller', '--controller-manager-timeout', '60', '--switch-timeout', '60'],
-                    parameters=[{'use_sim_time': use_sim_time}],
-                )
-            ],
-        )
-    )
-
-    # ─────────────────────────────────────────────────────────────────
-    # 7. Sensor Fusion (EKF)
-    # ─────────────────────────────────────────────────────────────────
-
-    robot_localization_node = Node(
-        package='robot_localization',
-        executable='ekf_node',
-        name='ekf_filter_node',
         output='screen',
-        parameters=[
-            os.path.join(pkg_description, 'config', 'ekf.yaml'),
-            {'use_sim_time': use_sim_time},
-        ],
     )
 
+
+    # ─────────────────────────────────────────────────────────────────
+    # 7. Sensor Fusion
+    # ─────────────────────────────────────────────────────────────────
+    
     # ─────────────────────────────────────────────────────────────────
     # 8. Visualisation
     # ─────────────────────────────────────────────────────────────────
@@ -220,6 +175,30 @@ def generate_launch_description():
     # 12. YOLO Vision Node (YOLOv8n — ultralytics)
     # ─────────────────────────────────────────────────────────────────
 
+    watchdog_node = Node(
+        package='archer_bridge',
+        executable='watchdog_node',
+        name='watchdog_node',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+    
+    demonstration_node = Node(
+        package='archer_bridge',
+        executable='demonstration_node',
+        name='demonstration_node',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
+    semantic_mapper_node = Node(
+        package='archer_bridge',
+        executable='semantic_mapper_node',
+        name='semantic_mapper_node',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
     yolo_node = Node(
         package='archer_yolo',
         executable='yolo_node',
@@ -239,7 +218,19 @@ def generate_launch_description():
     )
 
     # ─────────────────────────────────────────────────────────────────
-    # 13. SLAM Toolbox (5 s delay → clock must be up)
+    # 13. AI Explorer (Random Nav2 Goals)
+    # ─────────────────────────────────────────────────────────────────
+    
+    random_explorer = Node(
+        package='archer_bridge',
+        executable='random_explorer',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+        condition=IfCondition(LaunchConfiguration('use_explorer')),
+    )
+
+    # ─────────────────────────────────────────────────────────────────
+    # 14. SLAM Toolbox (5 s delay → clock must be up)
     # ─────────────────────────────────────────────────────────────────
 
     slam = TimerAction(
@@ -295,6 +286,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_nav2',     default_value='false'),
         DeclareLaunchArgument('use_3d_map',   default_value='false'),
         DeclareLaunchArgument('use_yolo',     default_value='true'),
+        DeclareLaunchArgument('use_explorer', default_value='true'),
 
         # ── Environment ───────────────────────────────────────────────
         set_render_engine,
@@ -312,11 +304,6 @@ def generate_launch_description():
         bridge,
 
         # ── Controllers ───────────────────────────────────────────────
-        load_joint_state_broadcaster,
-        load_position_controller,
-
-        # ── Sensor Fusion ─────────────────────────────────────────────
-        robot_localization_node,
 
         # ── Perception & Conversion ───────────────────────────────────
         depth_to_pointcloud,
@@ -332,6 +319,14 @@ def generate_launch_description():
         # ── Mapping & Navigation ──────────────────────────────────────
         slam if pkg_slam else Node(package='std_msgs', executable='relay', name='slam_stub', condition=IfCondition('false')),
         nav2  if pkg_nav2  else Node(package='std_msgs', executable='relay', name='nav2_stub',  condition=IfCondition('false')),
+
+        # ── Explorer ──────────────────────────────────────────────────
+        random_explorer,
+        
+        # ── Supervisors & Learning ────────────────────────────────────
+        watchdog_node,
+        demonstration_node,
+        semantic_mapper_node,
     ])
 
     return ld

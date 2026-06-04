@@ -8,34 +8,70 @@
   <xacro:include filename="materials.xacro" />
   <xacro:include filename="inertials.xacro" />
   <xacro:include filename="archer_gazebo.xacro" />
-  <xacro:include filename="archer_control.xacro" />
 
   <!-- Unified mesh orientation (aligned with local coordinate frames for both Gazebo and RViz) -->
   <xacro:property name="mesh_rpy" value="1.5707963 0 1.5707963"/>
 
-  <!-- Base Link / Frictionless Sled -->
+
+  <!-- Base Link -->
   <link name="base_link">
-    <!-- Invisible Sled for Absolute upright stability -->
-    <visual>
-      <origin xyz="0 0 0.01" rpy="0 0 0"/>
-      <geometry><box size="0.6 0.6 0.01"/></geometry>
-      <material name="transparent"/>
-    </visual>
+
+    <!-- Raised collision so it doesn't drag -->
     <collision>
-      <origin xyz="0 0 0.01" rpy="0 0 0"/>
-      <geometry><box size="0.6 0.6 0.01"/></geometry>
+      <origin xyz="0 0 0.15" rpy="0 0 0"/>
+      <geometry><box size="0.6 0.6 0.1"/></geometry>
     </collision>
-    <xacro:box_inertia m="5.0" w="0.6" h="0.6" d="0.01"/>
+    <xacro:box_inertia m="50.0" w="0.6" h="0.6" d="0.1"/>
   </link>
+
+  <!-- Caster Wheels for upright stability and traction -->
+  <link name="front_caster">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="0.04"/></geometry>
+    </collision>
+
+    <xacro:sphere_inertia m="1.0" r="0.04"/>
+  </link>
+  <joint name="front_caster_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="front_caster"/>
+    <origin xyz="0.25 0 0.04" rpy="0 0 0"/>
+  </joint>
+  
+  <link name="rear_caster">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="0.04"/></geometry>
+    </collision>
+
+    <xacro:sphere_inertia m="1.0" r="0.04"/>
+  </link>
+  <joint name="rear_caster_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rear_caster"/>
+    <origin xyz="-0.25 0 0.04" rpy="0 0 0"/>
+  </joint>
 
   <joint name="base_joint" type="fixed">
     <parent link="base_link"/><child link="Pelvis"/>
     <origin xyz="0 0 0.95" rpy="0 0 0"/>
   </joint>
   
-  <gazebo reference="base_link">
-    <!-- Frictionless sled to ensure smooth sliding -->
+  <gazebo reference="front_caster">
     <mu1>0.0</mu1><mu2>0.0</mu2>
+  </gazebo>
+  
+  <gazebo reference="rear_caster">
+    <mu1>0.0</mu1><mu2>0.0</mu2>
+  </gazebo>
+  
+  <gazebo reference="left_wheel">
+    <mu1>1000.0</mu1><mu2>1000.0</mu2>
+  </gazebo>
+  
+  <gazebo reference="right_wheel">
+    <mu1>1000.0</mu1><mu2>1000.0</mu2>
   </gazebo>
 
   <!-- Pelvis -->
@@ -48,7 +84,7 @@
       </geometry>
     </visual>
     <collision><geometry><box size="0.2 0.3 0.15"/></geometry></collision>
-    <xacro:ballast_inertia m="50.0" w="0.2" h="0.3" d="0.15"/>
+    <xacro:ballast_inertia m="5.0" w="0.2" h="0.3" d="0.15"/>
   </link>
 
   <!-- Wheels (Hidden visually inside/under the signature Neo white sneakers) -->
@@ -93,11 +129,9 @@
     <xacro:box_inertia m="5.0" w="0.15" h="0.25" d="0.2"/>
   </link>
   
-  <joint name="jL5S1_roty" type="revolute">
-    <parent link="Pelvis"/><child link="LowerTrunk"/><axis xyz="0 1 0"/>
-    <origin xyz="0 0 0.1"/>
-    <limit effort="100" velocity="1.0" lower="-0.5" upper="1.5"/>
-    <dynamics damping="1.5" friction="1.0"/>
+  <joint name="jL5S1_roty" type="fixed">
+    <parent link="Pelvis"/><child link="LowerTrunk"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
   </joint>
 
   <!-- Torso Segment 2: Upper Trunk (Chest / Shoulders) -->
@@ -113,11 +147,9 @@
     <xacro:box_inertia m="5.0" w="0.15" h="0.25" d="0.2"/>
   </link>
 
-  <joint name="jT9T8_roty" type="revolute">
-    <parent link="LowerTrunk"/><child link="UpperTrunk"/><axis xyz="0 1 0"/>
-    <origin xyz="0 0 0.2"/>
-    <limit effort="100" velocity="1.0" lower="-0.2" upper="0.7"/>
-    <dynamics damping="1.5" friction="1.0"/>
+  <joint name="jT9T8_roty" type="fixed">
+    <parent link="LowerTrunk"/><child link="UpperTrunk"/>
+    <origin xyz="0 0 0.2" rpy="0 0 0"/>
   </joint>
 
   <!-- Head (Sleek Visor Helmet with Emotive Rings) -->
@@ -133,11 +165,31 @@
     <xacro:sphere_inertia m="2.0" r="0.1"/>
   </link>
 
-  <joint name="jT1C7_roty" type="revolute">
-    <parent link="UpperTrunk"/><child link="Head"/><axis xyz="0 1 0"/>
-    <origin xyz="0 0 0.2"/>
-    <limit effort="10" velocity="1.0" lower="-0.5" upper="0.5"/>
-    <dynamics damping="1.5" friction="1.0"/>
+  <joint name="jT1C7_roty" type="fixed">
+    <parent link="UpperTrunk"/><child link="Head"/>
+    <origin xyz="0 0 0.3" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Sensor Links (for perfect Gazebo/ROS TF alignment) -->
+  <link name="head_camera_link"/>
+  <joint name="head_camera_joint" type="fixed">
+    <parent link="Head"/>
+    <child link="head_camera_link"/>
+    <origin xyz="0.2 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_lidar_link"/>
+  <joint name="base_lidar_joint" type="fixed">
+    <parent link="Head"/>
+    <child link="base_lidar_link"/>
+    <origin xyz="0.2 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+  <link name="torso_lidar_link"/>
+  <joint name="torso_lidar_joint" type="fixed">
+    <parent link="Pelvis"/>
+    <child link="torso_lidar_link"/>
+    <origin xyz="0 0 0.20" rpy="0 0 0"/>
   </joint>
 
   <!-- LEGS MACRO (Fully Functional Revolute Thighs, Calves, & Hidden Wheels in Sneakers) -->
@@ -154,11 +206,9 @@
       <xacro:cylinder_inertia m="3.0" r="0.05" l="0.4"/>
     </link>
 
-    <joint name="j${side}Hip_roty" type="revolute">
-      <parent link="Pelvis"/><child link="${side}UpperLeg"/><axis xyz="0 1 0"/>
-      <origin xyz="0 ${reflect*0.1} -0.1"/>
-      <limit effort="50" velocity="1.0" lower="-1.5" upper="0.5"/>
-      <dynamics damping="1.5" friction="1.0"/>
+    <joint name="j${side}Hip_roty" type="fixed">
+      <parent link="Pelvis"/><child link="${side}UpperLeg"/>
+      <origin xyz="0 ${reflect*0.1} -0.1" rpy="0 0 0"/>
     </joint>
 
     <link name="${side}LowerLeg">
@@ -206,11 +256,9 @@
       <xacro:cylinder_inertia m="2.0" r="0.04" l="0.4"/>
     </link>
 
-    <joint name="j${side}Knee_roty" type="revolute">
-      <parent link="${side}UpperLeg"/><child link="${side}LowerLeg"/><axis xyz="0 1 0"/>
-      <origin xyz="0 0 -0.4"/>
-      <limit effort="50" velocity="1.0" lower="0" upper="2.0"/>
-      <dynamics damping="1.5" friction="1.0"/>
+    <joint name="j${side}Knee_roty" type="fixed">
+      <parent link="${side}UpperLeg"/><child link="${side}LowerLeg"/>
+      <origin xyz="0 0 -0.4" rpy="0 0 0"/>
     </joint>
   </xacro:macro>
 
@@ -231,11 +279,9 @@
       <xacro:cylinder_inertia m="1.5" r="0.03" l="0.3"/>
     </link>
 
-    <joint name="j${side}Shoulder_roty" type="revolute">
-      <parent link="UpperTrunk"/><child link="${side}UpperArm"/><axis xyz="0 1 0"/>
-      <origin xyz="0 ${reflect*0.2} 0.1"/>
-      <limit effort="30" velocity="1.0" lower="-1.5" upper="1.5"/>
-      <dynamics damping="1.5" friction="1.0"/>
+    <joint name="j${side}Shoulder_roty" type="fixed">
+      <parent link="UpperTrunk"/><child link="${side}UpperArm"/>
+      <origin xyz="0 ${reflect*0.2} 0.1" rpy="0 0 0"/>
     </joint>
 
     <link name="${side}LowerArm">
@@ -250,18 +296,16 @@
       <xacro:cylinder_inertia m="1.0" r="0.02" l="0.3"/>
     </link>
 
-    <joint name="j${side}Elbow_roty" type="revolute">
-      <parent link="${side}UpperArm"/><child link="${side}LowerArm"/><axis xyz="0 1 0"/>
-      <origin xyz="0 0 -0.3"/>
-      <limit effort="30" velocity="1.0" lower="-2.0" upper="0"/>
-      <dynamics damping="1.5" friction="1.0"/>
+    <joint name="j${side}Elbow_roty" type="fixed">
+      <parent link="${side}UpperArm"/><child link="${side}LowerArm"/>
+      <origin xyz="0 0 -0.3" rpy="0 0 0"/>
     </joint>
 
     <!-- Hand (Robotic Mitten styled in high-fidelity 1X Neo aesthetic) -->
     <link name="${side}Hand">
       <!-- Professional 1X Palm Mesh -->
       <visual>
-        <origin xyz="0 0 0" rpy="${mesh_rpy}"/>
+        <origin xyz="0 0 0" rpy="1.5707963 3.14159265 1.5707963"/>
         <geometry>
           <mesh filename="package://archer_description/meshes/palm.obj" scale="1.0 1.0 1.0"/>
         </geometry>
