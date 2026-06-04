@@ -1,6 +1,5 @@
 # A.R.C.H.E.R. ROS 2 Humanoid Simulation
 
-#### Option A: Docker (Portable)
 Archer is an Advanced Relationship & Command Handling Entity (Humanoid) running on a professional ROS 2 Jazzy stack and Gazebo Harmonic.
 
 ## Project Structure (Lab 2 Refactor)
@@ -42,15 +41,7 @@ Archer is an Advanced Relationship & Command Handling Entity (Humanoid) running 
 
 ## Quick Start Guide
 
-### Option A: Docker (Recommended)
-1. Ensure Docker Desktop is running.
-2. Run:
-   ```powershell
-   docker compose up ros2
-   ```
-   *Note: Set `ENABLE_GUI=true` in `.env` to see Gazebo.*
-
-### Option B: Native WSL2
+### Native WSL2
 1. **Build**:
    ```bash
    cd ros2_ws
@@ -117,6 +108,5 @@ Once the AI Core is running, you can give commands in plain English:
 
 ## 📂 Project Structure
 *   `core/`: Archer's LLM, TTS, and Command Processing logic.
-*   `docker/`: Orchestration and ROS 2 environment.
 *   `ros2_ws/`: Archer's physical humanoid definition (URDF) and Bridge Node.
 *   `simulation/`: Gazebo worlds, RViz configs, and shared command volumes.
