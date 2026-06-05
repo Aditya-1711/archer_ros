@@ -348,7 +348,7 @@ class MemoryManager:
                 for word in words:
                     for item in self.db["preferences"]:
                         if word in str(item.get("key", "")).lower() or word in str(item.get("value", "")).lower():
-                            candidate_records.append({"text": f"User preference - {item['key']}: {item['value']}", "score": 0.8, "table": "preferences", "id": item["id"], "access_count": item.get("access_count", 0)})
+                            candidate_records.append({"text": f"Fact: {item['value']}", "score": 0.8, "table": "preferences", "id": item["id"], "access_count": item.get("access_count", 0)})
                     
                     for item in self.db["locations"]:
                         if word in str(item.get("name", "")).lower() or word in str(item.get("friendly_name", "")).lower():
@@ -400,16 +400,14 @@ class MemoryManager:
 
             context_parts = []
             if top_candidates:
-                context_parts.append("### Retrieved Long-Term Memories & Visual Sightings:")
-                context_parts.extend([f"- {c['text']}" for c in top_candidates])
+                context_parts.extend([f"Memory: {c['text']}" for c in top_candidates])
                 
             recent_convs = []
             conv_len = len(self.db["conversations"])
             for item in self.db["conversations"][max(0, conv_len-3):]:
                 recent_convs.append(f"{item.get('speaker', '')}: {item.get('text', '')}")
             if recent_convs:
-                context_parts.append("### Recent Conversation History:")
-                context_parts.extend([f"- {c}" for c in recent_convs])
+                context_parts.extend([f"Recent Chat: {c}" for c in recent_convs])
 
             return "\n".join(context_parts) if context_parts else "No relevant long-term memory records found."
 
