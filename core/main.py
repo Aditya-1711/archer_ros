@@ -498,7 +498,10 @@ LEARNED ROUTINES:
 {routines_str}
 
 CRITICAL INSTRUCTION: You must now respond to the user's input.
-Answer concisely in a single short sentence using ONLY the context provided above. Do NOT append the hardware status or any other extra sections. Do NOT hallucinate.
+Answer the user's question directly and concisely in ONE sentence, based ONLY on the context above.
+DO NOT copy headers like "Hardware Status" or "Memory Bank".
+DO NOT output bullet points or lists.
+Just provide the final conversational answer.
 Your identity is a robotic control intelligence.
 """
     system_prompt = system_prompt.format(
