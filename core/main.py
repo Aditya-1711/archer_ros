@@ -401,6 +401,19 @@ def run_pipeline_step(
         elif action_type == "replay_demonstration":
             speech_output = "Replaying demonstration."
             action_queue.append({"type": "replay_demonstration"})
+            
+        elif action_type == "timer":
+            duration = reflex_cmd.get("duration", 0)
+            if duration > 0:
+                from ai.tools.timer_manager import TimerManager
+                if not hasattr(tts, 'timer_mgr'):
+                    tts.timer_mgr = TimerManager()
+                # pass tts.speak directly as callback
+                tts.timer_mgr.start_timer(duration, tts.speak)
+                speech_output = f"Timer set for {duration} seconds."
+            else:
+                speech_output = "Invalid timer duration."
+            action_queue.append({"type": "stop"})
                 
         if speech_output and action_queue:
             logger.info(f"[Reflex] Bypassing LLM. Speech: '{speech_output}', Actions: {[a.get('type') for a in action_queue]}")
@@ -421,6 +434,20 @@ def run_pipeline_step(
         if oc_response:
             tts.speak(oc_response)
             return {"speech": oc_response, "actions": [{"type": "stop"}]}
+
+    # 2.5 Live Web Fetcher Integration (Weather / Wikipedia)
+    live_web_data = ""
+    if reflex_cmd.get("action") == "weather":
+        from ai.tools.web_fetcher import get_weather
+        loc = reflex_cmd.get("location", "")
+        live_web_data = get_weather(loc)
+    elif reflex_cmd.get("action") == "search":
+        from ai.tools.web_fetcher import search_wikipedia
+        q = reflex_cmd.get("query", "")
+        live_web_data = search_wikipedia(q)
+        
+    if live_web_data:
+        memory_str += f"\n\nLIVE WEB DATA:\n{live_web_data}"
 
     # 3. LLM fallback
     # Omit the massive system spec to prevent context window overflow

@@ -135,6 +135,9 @@ _REMEMBER = re.compile(r'\b(remember|note|save|memorize)\b\s+(that\s+)?(.+)', re
 _LEARN_ROUTINE = re.compile(r'\b(learn|save|record)\b\s+routine\s+(.*?)\s*(?:[=:,-]|as)\s+(.+)', re.IGNORECASE)
 _EXPLORE = re.compile(r"\b(explore|mapping|map\s+the\s+area|start\s+mapping|run\s+slam|scan)\b", re.IGNORECASE)
 _EXECUTE_ROUTINE = re.compile(r"\b(execute|run|start)\s+routine\s+(.+)", re.IGNORECASE)
+_TIMER = re.compile(r"\b(?:set|start)\b.*?(?:a\s+)?timer.*?\bfor\b\s+(\d+)\s*(second|minute|hour)s?", re.IGNORECASE)
+_WEATHER = re.compile(r"\b(?:what\s+is|whats)\s+the\s+weather\b(?:\s+in\s+(.+))?", re.IGNORECASE)
+_SEARCH = re.compile(r"\b(?:search\s+for|who\s+is|what\s+is)\s+(?!the\s+weather|your\s+status)(.+)", re.IGNORECASE)
 
 
 class CommandParser:
@@ -243,14 +246,33 @@ class CommandParser:
             return self._make(action="explore", linear=0.0, angular=0.0, duration=-1, raw=text)
 
         # --- EXECUTE ROUTINE ---
-        routine_exec_match = _EXECUTE_ROUTINE.search(text)
-        if routine_exec_match:
-            r_name = routine_exec_match.group(2).strip()
-            if r_name.endswith((".", "!", "?")):
-                r_name = r_name[:-1]
-            cmd = self._make(action="execute_routine", linear=0.0, angular=0.0, duration=-1, raw=text)
-            cmd["routine_name"] = r_name
-            return cmd
+        m = _EXECUTE_ROUTINE.search(text)
+        if m:
+            logger.info(f"[Parser] '{text}' -> execute_routine: {m.group(2)}")
+            return {"action": "execute_routine", "linear": 0.0, "angular": 0.0, "duration": -1, "raw": text, "routine_name": m.group(2).strip()}
+
+        m = _TIMER.search(text)
+        if m:
+            val = int(m.group(1))
+            unit = m.group(2).lower()
+            if unit == "minute": val *= 60
+            if unit == "hour": val *= 3600
+            logger.info(f"[Parser] '{text}' -> timer for {val}s")
+            return {"action": "timer", "linear": 0.0, "angular": 0.0, "duration": val, "raw": text}
+            
+        m = _WEATHER.search(text)
+        if m:
+            loc = m.group(1).strip() if m.group(1) else ""
+            logger.info(f"[Parser] '{text}' -> weather (loc: {loc})")
+            return {"action": "weather", "linear": 0.0, "angular": 0.0, "duration": -1, "raw": text, "location": loc}
+
+        m = _SEARCH.search(text)
+        if m:
+            query = m.group(1).strip().strip("?")
+            # Skip if it looks like a location query ("where are the keys")
+            if not text.lower().startswith("where "):
+                logger.info(f"[Parser] '{text}' -> search (query: {query})")
+                return {"action": "search", "linear": 0.0, "angular": 0.0, "duration": -1, "raw": text, "query": query}
 
         # --- TURN LEFT ---
         if _TURN_LEFT.search(text):
