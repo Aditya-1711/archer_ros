@@ -34,7 +34,7 @@ ollama:
   base_url: "http://localhost:11434"
   # llama3.2:1b — lighter model for systems with limited RAM.
   # Use llama3.1:8b if you have at least 8GB RAM available.
-  model: "llama3.2:1b"
+  model: "llama3.1:8b"
   # Request timeout in seconds.
   # First request takes 30-60s while the model loads into RAM — be patient.
   # Subsequent requests are much faster (2-5s) once the model is warm.
