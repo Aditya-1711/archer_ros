@@ -498,7 +498,7 @@ LEARNED ROUTINES:
 {routines_str}
 
 CRITICAL INSTRUCTION: You must now respond to the user's input.
-If the user asks a question, answer it concisely using ONLY the information provided in the LONG-TERM MEMORY BANK or CURRENT HARDWARE STATUS above. Do NOT hallucinate.
+Answer concisely in a single short sentence using ONLY the context provided above. Do NOT append the hardware status or any other extra sections. Do NOT hallucinate.
 Your identity is a robotic control intelligence.
 """
     system_prompt = system_prompt.format(
