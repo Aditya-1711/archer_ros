@@ -1,4 +1,4 @@
-# 🤖 A.R.C.H.E.R. — Advanced Relationship & Command Handling Entity for Robotics
+# 🤖 A.R.C.H.E.R. — Advanced Robotic Control with Hybrid Embedded Reasoning
 
 <div align="center">
 
@@ -18,7 +18,7 @@
 
 ## 📌 Executive Overview
 
-**A.R.C.H.E.R.** (*Advanced Relationship & Command Handling Entity for Robotics*) bridges the gap between natural human conversation and complex, real-time spatial robotics execution. Designed to operate **100% locally with zero cloud dependencies**, Archer processes continuous voice directives, understands intent via a quantized local LLM, navigates indoor environments autonomously using CUDA-accelerated visual odometry and Nav2, and maintains persistent spatial memory.
+**A.R.C.H.E.R.** (*Advanced Robotic Control with Hybrid Embedded Reasoning*) bridges the gap between natural human conversation and complex, real-time spatial robotics execution. Designed to operate **100% locally with zero cloud dependencies**, Archer processes continuous voice directives, understands intent via a quantized local LLM, navigates indoor environments autonomously using CUDA-accelerated visual odometry and Nav2, and maintains persistent spatial memory.
 
 > [!NOTE]
 > **Status: Completed & Graded**  
