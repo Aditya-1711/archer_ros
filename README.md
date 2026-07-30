@@ -1,5 +1,9 @@
 # A.R.C.H.E.R. ROS 2 Humanoid Simulation
 
+> [!NOTE]
+> **Status: Completed & Graded**
+> This project has been successfully completed and graded as part of the coursework.
+
 Archer is an Advanced Relationship & Command Handling Entity (Humanoid) running on a professional ROS 2 Jazzy stack and Gazebo Harmonic.
 
 ## Project Structure (Lab 2 Refactor)
