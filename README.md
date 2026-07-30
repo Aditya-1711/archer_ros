@@ -1,10 +1,10 @@
-# A.R.C.H.E.R. - Advanced Relationship & Command Handling Entity
+# A.R.C.H.E.R. - Advanced Robotic Control with Hybrid Embedded Reasoning
 
 > [!NOTE]
 > **Status: Completed & Graded**
 > This project has been successfully completed and graded as part of the coursework.
 
-A.R.C.H.E.R. (Advanced Relationship & Command Handling Entity) is an advanced humanoid robotics platform designed for intelligent interaction, spatial awareness, and autonomous task execution. 
+A.R.C.H.E.R. (Advanced Robotic Control with HybridEmbedded Reasoning) is an advanced humanoid robotics platform designed for intelligent interaction, spatial awareness, and autonomous task execution. 
 
 ## Overview
 
