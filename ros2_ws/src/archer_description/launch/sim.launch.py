@@ -24,9 +24,10 @@ def generate_launch_description():
         pkg_slam = None
 
     # Config files
-    xacro_file    = os.path.join(pkg_description, 'urdf', 'archer.urdf.xacro')
-    world_file    = os.path.join(pkg_description, 'worlds', 'archer_world.sdf')
-    rviz_config   = os.path.join(pkg_description, 'rviz', 'sim.rviz')
+    xacro_file         = os.path.join(pkg_description, 'urdf', 'archer.urdf.xacro')
+    world_file         = os.path.join(pkg_description, 'worlds', 'archer_world.sdf')
+    rviz_config        = os.path.join(pkg_description, 'rviz', 'sim.rviz')
+    visual_slam_config = os.path.join(pkg_description, 'config', 'visual_slam.yaml')
 
     # 2. Launch Arguments
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
@@ -36,6 +37,7 @@ def generate_launch_description():
     use_nav2     = LaunchConfiguration('use_nav2',     default='false')
     use_3d_map   = LaunchConfiguration('use_3d_map',   default='false')
     use_yolo     = LaunchConfiguration('use_yolo',     default='true')
+    use_cuvslam  = LaunchConfiguration('use_cuvslam',  default='false')
 
     # 3. Environment Variables (Critical for WSLg)
     set_render_engine = SetEnvironmentVariable('GZ_SIM_RENDER_ENGINE_GUI', 'ogre')
@@ -56,7 +58,7 @@ def generate_launch_description():
         package='robot_state_publisher',
         executable='robot_state_publisher',
         parameters=[{
-            'robot_description': ParameterValue(Command(['xacro ', xacro_file]), value_type=str),
+            'robot_description': ParameterValue(Command(['xacro ', xacro_file, ' use_cuvslam:=', use_cuvslam]), value_type=str),
             'use_sim_time': use_sim_time,
         }],
     )
@@ -73,12 +75,15 @@ def generate_launch_description():
         }.items(),
     )
 
-    # Spawn Robot (Archer V2)
-    spawn_robot = Node(
-        package='ros_gz_sim',
-        executable='create',
-        arguments=['-topic', 'robot_description', '-name', 'archer_v2', '-z', '0.15'],
-        output='screen',
+    # Spawn Robot (Archer V2) with delay to allow Gazebo server to start
+    spawn_robot = TimerAction(
+        period=5.0,
+        actions=[Node(
+            package='ros_gz_sim',
+            executable='create',
+            arguments=['-topic', 'robot_description', '-name', 'archer_v2', '-z', '0.01'],
+            output='screen',
+        )]
     )
 
     # ─────────────────────────────────────────────────────────────────
@@ -92,7 +97,7 @@ def generate_launch_description():
         name='ros_gz_bridge',
         arguments=[
             # cmd_vel: ROS → GZ
-            '/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
+            '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
             # Clock: GZ → ROS
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
             # odom, scan, tf, imu, joint_states: GZ → ROS
@@ -100,12 +105,31 @@ def generate_launch_description():
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/scan_torso@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+            '/model/archer/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
             '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
-            # Camera topics: GZ → ROS
-            '/archer/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            # Monocular camera (YOLO / OctoMap): GZ → ROS
             '/archer/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/archer/camera/depth@sensor_msgs/msg/Image[gz.msgs.Image',
+            # Stereo cameras (cuVSLAM): GZ → ROS
+            '/archer/camera/left/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+            '/archer/camera/right/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+        ],
+        remappings=[
+            ('/model/archer/tf', '/tf'),
+        ],
+        parameters=[{'use_sim_time': use_sim_time}],
+        output='screen',
+    )
+
+    image_bridge = Node(
+        package='ros_gz_image',
+        executable='image_bridge',
+        name='ros_gz_image_bridge',
+        arguments=[
+            '/archer/camera/image_raw',
+            '/archer/camera/depth',
+            '/archer/camera/left/image_raw',
+            '/archer/camera/right/image_raw'
         ],
         parameters=[{'use_sim_time': use_sim_time}],
         output='screen',
@@ -274,6 +298,36 @@ def generate_launch_description():
     ) if pkg_nav2 else None
 
     # ─────────────────────────────────────────────────────────────────
+    # cuVSLAM — PyCuVSLAM-based stereo visual odometry
+    # Uses our custom archer_bridge/cuvslam_node (wraps the PyCuVSLAM pip wheel).
+    # No Isaac ROS apt package needed — install the wheel from:
+    #   https://github.com/nvidia-isaac/cuVSLAM/releases
+    #   pip install cuvslam-*-cp312-*-linux_x86_64.whl
+    # Enabled via: use_cuvslam:=true
+    # Requires: NVIDIA GPU + CUDA 12 accessible in WSL2
+    # ─────────────────────────────────────────────────────────────────
+
+    visual_slam = TimerAction(
+        period=7.0,
+        actions=[Node(
+            package='archer_bridge',
+            executable='cuvslam_node',
+            name='cuvslam_node',
+            output='screen',
+            parameters=[{
+                'use_sim_time':   use_sim_time,
+                'odom_frame':     'odom',
+                'base_frame':     'base_link',
+                'map_frame':      'map',
+                'warmup_frames':  30,
+                'jitter_ms':      34.0,
+            }],
+            condition=IfCondition(use_cuvslam),
+        )],
+        condition=IfCondition(use_cuvslam),
+    )
+
+    # ─────────────────────────────────────────────────────────────────
     # 15. Assemble LaunchDescription
     # ─────────────────────────────────────────────────────────────────
 
@@ -287,6 +341,9 @@ def generate_launch_description():
         DeclareLaunchArgument('use_3d_map',   default_value='false'),
         DeclareLaunchArgument('use_yolo',     default_value='true'),
         DeclareLaunchArgument('use_explorer', default_value='true'),
+        DeclareLaunchArgument('use_cuvslam',  default_value='false',
+                              description='Launch cuVSLAM stereo visual odometry node (archer_bridge/cuvslam_node). '
+                                          'Requires: PyCuVSLAM pip wheel + NVIDIA GPU in WSL2.'),
 
         # ── Environment ───────────────────────────────────────────────
         set_render_engine,
@@ -302,6 +359,7 @@ def generate_launch_description():
 
         # ── Bridges ───────────────────────────────────────────────────
         bridge,
+        image_bridge,
 
         # ── Controllers ───────────────────────────────────────────────
 
@@ -319,6 +377,9 @@ def generate_launch_description():
         # ── Mapping & Navigation ──────────────────────────────────────
         slam if pkg_slam else Node(package='std_msgs', executable='relay', name='slam_stub', condition=IfCondition('false')),
         nav2  if pkg_nav2  else Node(package='std_msgs', executable='relay', name='nav2_stub',  condition=IfCondition('false')),
+
+        # ── cuVSLAM Visual Odometry (optional, use_cuvslam:=true) ─────
+        visual_slam,
 
         # ── Explorer ──────────────────────────────────────────────────
         random_explorer,

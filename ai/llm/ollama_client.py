@@ -106,7 +106,7 @@ Your identity is a robotic control intelligence.
             resp = requests.post(f"{self.base_url}/api/chat", json=payload, timeout=self.timeout)
             
             if resp.status_code != 200:
-                logger.warning(f"Ollama Chat error {resp.status_code}. Fallback to raw.")
+                logger.warning(f"Ollama Chat error {resp.status_code}: {resp.text}. Fallback to raw.")
                 return prompt
 
             return resp.json().get("message", {}).get("content", prompt).strip()

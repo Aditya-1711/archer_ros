@@ -5,9 +5,13 @@
 
     <!-- Joint State Publisher (Fixes No Transform error) -->
     <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
-      <topic>joint_states</topic>
+      <topic>/joint_states</topic>
       <joint_name>left_wheel_joint</joint_name>
       <joint_name>right_wheel_joint</joint_name>
+      <joint_name>front_caster_joint</joint_name>
+      <joint_name>rear_caster_joint</joint_name>
+      <joint_name>left_stabilizer_joint</joint_name>
+      <joint_name>right_stabilizer_joint</joint_name>
     </plugin>
 
     <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
@@ -22,19 +26,20 @@
       <topic>/cmd_vel</topic>
       <odom_topic>/odom</odom_topic>
       <tf_topic>/tf</tf_topic>
+      <publish_odom>true</publish_odom>
       <publish_odom_tf>true</publish_odom_tf>
       <frame_id>odom</frame_id>
-      <child_frame_id>base_link</child_frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
     </plugin>
   </gazebo>
 
   <!-- Sensors Definition -->
   <gazebo reference="head_camera_link">
-    <!-- RGB Camera (Proven to work on WSL) -->
+    <!-- RGB Monocular Camera (for YOLO — kept on original topic) -->
     <sensor name="head_camera" type="camera">
       <pose>0 0 0 0 0 0</pose>
       <always_on>1</always_on>
-      <update_rate>2</update_rate>
+      <update_rate>30</update_rate>
       <visualize>true</visualize>
       <topic>/archer/camera/image_raw</topic>
       <gz_frame_id>head_camera_link</gz_frame_id>
@@ -42,19 +47,19 @@
       <camera>
         <horizontal_fov>1.047</horizontal_fov>
         <image>
-          <width>320</width>
-          <height>240</height>
+          <width>640</width>
+          <height>480</height>
           <format>R8G8B8</format>
         </image>
         <clip><near>0.1</near><far>100</far></clip>
       </camera>
     </sensor>
 
-    <!-- Depth Camera for 3D Voxels -->
+    <!-- Depth Camera (for OctoMap / depth_to_pointcloud) -->
     <sensor name="head_camera_depth" type="depth_camera">
       <pose>0 0 0 0 0 0</pose>
       <always_on>1</always_on>
-      <update_rate>5</update_rate>
+      <update_rate>15</update_rate>
       <visualize>false</visualize>
       <topic>/archer/camera/depth</topic>
       <gz_frame_id>head_camera_link</gz_frame_id>
@@ -62,13 +67,58 @@
       <camera>
         <horizontal_fov>1.047</horizontal_fov>
         <image>
-          <width>320</width>
-          <height>240</height>
+          <width>640</width>
+          <height>480</height>
         </image>
         <clip><near>0.1</near><far>10.0</far></clip>
       </camera>
     </sensor>
   </gazebo>
+
+  <!-- Stereo Left Camera (cuVSLAM) -->
+  <gazebo reference="camera_left_link">
+    <sensor name="camera_left" type="camera">
+      <pose>0 0 0 0 0 0</pose>
+      <always_on>1</always_on>
+      <update_rate>30</update_rate>
+      <visualize>false</visualize>
+      <topic>/archer/camera/left/image_raw</topic>
+      <gz_frame_id>camera_left_link</gz_frame_id>
+      <frame_id>camera_left_link</frame_id>
+      <camera>
+        <horizontal_fov>1.047</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip><near>0.1</near><far>100</far></clip>
+      </camera>
+    </sensor>
+  </gazebo>
+
+  <!-- Stereo Right Camera (cuVSLAM) -->
+  <gazebo reference="camera_right_link">
+    <sensor name="camera_right" type="camera">
+      <pose>0 0 0 0 0 0</pose>
+      <always_on>1</always_on>
+      <update_rate>30</update_rate>
+      <visualize>false</visualize>
+      <topic>/archer/camera/right/image_raw</topic>
+      <gz_frame_id>camera_right_link</gz_frame_id>
+      <frame_id>camera_right_link</frame_id>
+      <camera>
+        <horizontal_fov>1.047</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip><near>0.1</near><far>100</far></clip>
+      </camera>
+    </sensor>
+  </gazebo>
+
 
   <gazebo reference="base_lidar_link">
     <!-- Lidar on Head to ensure horizontal scans -->
@@ -91,7 +141,7 @@
           </horizontal>
         </scan>
         <range>
-          <min>0.40</min>
+          <min>0.60</min>
           <max>12.0</max>
           <resolution>0.01</resolution>
         </range>

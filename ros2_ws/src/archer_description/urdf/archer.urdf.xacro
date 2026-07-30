@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="archer">
+  <xacro:arg name="use_cuvslam" default="false"/>
 
   <!-- ========================================================================= -->
   <!-- Archer: Overhauled with Professional 1X Technologies Humanoid Meshes      -->
@@ -13,6 +14,17 @@
   <xacro:property name="mesh_rpy" value="1.5707963 0 1.5707963"/>
 
 
+  <!-- Base Footprint (Root Link) -->
+  <link name="base_footprint">
+    <xacro:box_inertia m="5.0" w="0.6" h="0.6" d="0.1"/>
+  </link>
+  
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
   <!-- Base Link -->
   <link name="base_link">
 
@@ -21,7 +33,7 @@
       <origin xyz="0 0 0.15" rpy="0 0 0"/>
       <geometry><box size="0.6 0.6 0.1"/></geometry>
     </collision>
-    <xacro:box_inertia m="50.0" w="0.6" h="0.6" d="0.1"/>
+    <xacro:box_inertia m="5.0" w="0.6" h="0.6" d="0.1"/>
   </link>
 
   <!-- Caster Wheels for upright stability and traction -->
@@ -33,10 +45,11 @@
 
     <xacro:sphere_inertia m="1.0" r="0.04"/>
   </link>
-  <joint name="front_caster_joint" type="fixed">
+  <joint name="front_caster_joint" type="continuous">
     <parent link="base_link"/>
     <child link="front_caster"/>
     <origin xyz="0.25 0 0.04" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
   </joint>
   
   <link name="rear_caster">
@@ -47,10 +60,39 @@
 
     <xacro:sphere_inertia m="1.0" r="0.04"/>
   </link>
-  <joint name="rear_caster_joint" type="fixed">
+  <joint name="rear_caster_joint" type="continuous">
     <parent link="base_link"/>
     <child link="rear_caster"/>
     <origin xyz="-0.25 0 0.04" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <link name="left_stabilizer">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="0.04"/></geometry>
+    </collision>
+    <xacro:sphere_inertia m="1.0" r="0.04"/>
+  </link>
+  <joint name="left_stabilizer_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="left_stabilizer"/>
+    <origin xyz="0 0.25 0.04" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <link name="right_stabilizer">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="0.04"/></geometry>
+    </collision>
+    <xacro:sphere_inertia m="1.0" r="0.04"/>
+  </link>
+  <joint name="right_stabilizer_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="right_stabilizer"/>
+    <origin xyz="0 -0.25 0.04" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
   </joint>
 
   <joint name="base_joint" type="fixed">
@@ -63,6 +105,14 @@
   </gazebo>
   
   <gazebo reference="rear_caster">
+    <mu1>0.0</mu1><mu2>0.0</mu2>
+  </gazebo>
+
+  <gazebo reference="left_stabilizer">
+    <mu1>0.0</mu1><mu2>0.0</mu2>
+  </gazebo>
+  
+  <gazebo reference="right_stabilizer">
     <mu1>0.0</mu1><mu2>0.0</mu2>
   </gazebo>
   
@@ -80,11 +130,11 @@
     <visual>
       <origin xyz="0 0 0" rpy="${mesh_rpy}"/>
       <geometry>
-        <mesh filename="package://archer_description/meshes/torso.obj" scale="1.0 1.0 1.0"/>
+        <mesh filename="file://$(find archer_description)/meshes/torso.obj" scale="1.0 1.0 1.0"/>
       </geometry>
     </visual>
     <collision><geometry><box size="0.2 0.3 0.15"/></geometry></collision>
-    <xacro:ballast_inertia m="5.0" w="0.2" h="0.3" d="0.15"/>
+    <xacro:box_inertia m="5.0" w="0.2" h="0.3" d="0.15"/>
   </link>
 
   <!-- Wheels (Hidden visually inside/under the signature Neo white sneakers) -->
@@ -122,7 +172,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="${mesh_rpy}"/>
       <geometry>
-        <mesh filename="package://archer_description/meshes/abdomen.obj" scale="1.0 1.0 1.0"/>
+        <mesh filename="file://$(find archer_description)/meshes/abdomen.obj" scale="1.0 1.0 1.0"/>
       </geometry>
     </visual>
     <collision><geometry><box size="0.15 0.25 0.2"/></geometry></collision>
@@ -140,7 +190,7 @@
     <visual>
       <origin xyz="0 0 0.1" rpy="${mesh_rpy}"/>
       <geometry>
-        <mesh filename="package://archer_description/meshes/scapula.obj" scale="1.0 1.0 1.0"/>
+        <mesh filename="file://$(find archer_description)/meshes/scapula.obj" scale="1.0 1.0 1.0"/>
       </geometry>
     </visual>
     <collision><geometry><box size="0.15 0.25 0.2"/></geometry></collision>
@@ -158,7 +208,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="${mesh_rpy}"/>
       <geometry>
-        <mesh filename="package://archer_description/meshes/head.obj" scale="1.0 1.0 1.0"/>
+        <mesh filename="file://$(find archer_description)/meshes/head.obj" scale="1.0 1.0 1.0"/>
       </geometry>
     </visual>
     <collision><geometry><sphere radius="0.1"/></geometry></collision>
@@ -176,6 +226,21 @@
     <parent link="Head"/>
     <child link="head_camera_link"/>
     <origin xyz="0.2 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Stereo Camera Links (cuVSLAM) — 12 cm baseline, child of head_camera_link -->
+  <link name="camera_left_link"/>
+  <joint name="camera_left_joint" type="fixed">
+    <parent link="head_camera_link"/>
+    <child link="camera_left_link"/>
+    <origin xyz="0 0.06 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_right_link"/>
+  <joint name="camera_right_joint" type="fixed">
+    <parent link="head_camera_link"/>
+    <child link="camera_right_link"/>
+    <origin xyz="0 -0.06 0" rpy="0 0 0"/>
   </joint>
 
   <link name="base_lidar_link"/>
@@ -199,7 +264,7 @@
       <visual>
         <origin xyz="0 0 0" rpy="${mesh_rpy}"/>
         <geometry>
-          <mesh filename="package://archer_description/meshes/thigh.obj" scale="1.0 1.0 1.0"/>
+          <mesh filename="file://$(find archer_description)/meshes/thigh.obj" scale="1.0 1.0 1.0"/>
         </geometry>
       </visual>
       <collision><geometry><cylinder radius="0.05" length="0.4"/></geometry></collision>
@@ -216,7 +281,7 @@
       <visual>
         <origin xyz="0 0 0" rpy="${mesh_rpy}"/>
         <geometry>
-          <mesh filename="package://archer_description/meshes/shin.obj" scale="1.0 1.0 1.0"/>
+          <mesh filename="file://$(find archer_description)/meshes/shin.obj" scale="1.0 1.0 1.0"/>
         </geometry>
       </visual>
       
@@ -272,7 +337,7 @@
       <visual>
         <origin xyz="0 0 0" rpy="${mesh_rpy}"/>
         <geometry>
-          <mesh filename="package://archer_description/meshes/upper_arm.obj" scale="1.0 1.0 1.0"/>
+          <mesh filename="file://$(find archer_description)/meshes/upper_arm.obj" scale="1.0 1.0 1.0"/>
         </geometry>
       </visual>
       <collision><geometry><cylinder radius="0.03" length="0.3"/></geometry></collision>
@@ -289,7 +354,7 @@
       <visual>
         <origin xyz="0 0 0" rpy="${mesh_rpy}"/>
         <geometry>
-          <mesh filename="package://archer_description/meshes/forearm.obj" scale="1.0 1.0 1.0"/>
+          <mesh filename="file://$(find archer_description)/meshes/forearm.obj" scale="1.0 1.0 1.0"/>
         </geometry>
       </visual>
       <collision><geometry><cylinder radius="0.02" length="0.3"/></geometry></collision>
@@ -307,7 +372,7 @@
       <visual>
         <origin xyz="0 0 0" rpy="1.5707963 3.14159265 1.5707963"/>
         <geometry>
-          <mesh filename="package://archer_description/meshes/palm.obj" scale="1.0 1.0 1.0"/>
+          <mesh filename="file://$(find archer_description)/meshes/palm.obj" scale="1.0 1.0 1.0"/>
         </geometry>
       </visual>
       <collision><geometry><sphere radius="0.04"/></geometry></collision>

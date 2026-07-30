@@ -1,0 +1,46 @@
+visual_slam_node:
+  ros__parameters:
+
+    # --------------------------------------------------------------
+    # Frame configuration
+    # --------------------------------------------------------------
+    map_frame: map
+    odom_frame: odom
+    base_frame: base_link
+
+    # --------------------------------------------------------------
+    # Camera input
+    # num_cameras: 2 = stereo pair (left + right)
+    # rectified_images: false — Gazebo produces ideal pinhole images,
+    #   cuVSLAM will read camera_info for intrinsics
+    # --------------------------------------------------------------
+    num_cameras: 2
+    rectified_images: false
+
+    # --------------------------------------------------------------
+    # IMU fusion (Gazebo IMU on /imu, bridged in sim.launch.py)
+    # --------------------------------------------------------------
+    enable_imu_fusion: true
+    imu_frame: base_link
+
+    # --------------------------------------------------------------
+    # TF publishing — hybrid mode:
+    #   cuVSLAM  ? odom  ? base_link  (visual odometry)
+    #   SLAM Toolbox ? map ? odom     (2D occupancy mapping)
+    # --------------------------------------------------------------
+    publish_odom_to_base_tf: true
+    publish_map_to_odom_tf: false
+
+    # --------------------------------------------------------------
+    # Visual-odometry-only mode (no cuVSLAM visual map built)
+    # SLAM Toolbox handles mapping from LiDAR scans
+    # --------------------------------------------------------------
+    enable_slam_mode: false
+
+    # --------------------------------------------------------------
+    # Performance — GTX 1650 (4 GB VRAM) on WSL2
+    # --------------------------------------------------------------
+    # Allow up to 34 ms jitter between stereo frames (~30 FPS sync)
+    image_jitter_threshold_ms: 34.0
+    # Buffer for timestamp mismatches under WSL2 scheduling
+    image_buffer_size: 100

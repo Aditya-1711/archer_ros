@@ -27,7 +27,7 @@ class ArcherBridgeNode(Node):
         self.get_logger().info(f"ArcherBridge initialized. Monitoring: {self._sim_path}")
 
         # Publishers & Subscribers
-        self._vel_pub = self.create_publisher(Twist, "/archer/cmd_vel_raw", 10)
+        self._vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
         self._goal_pub = self.create_publisher(PoseStamped, "/goal_pose", 10)
         self._explorer_enable_pub = self.create_publisher(Bool, "/explorer/enable", 10)
         self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
@@ -38,9 +38,12 @@ class ArcherBridgeNode(Node):
         self._heartbeat_pub = self.create_publisher(Header, "/archer/heartbeat/bridge", 10)
         self._ai_heartbeat_pub = self.create_publisher(Header, "/archer/heartbeat/ai_core", 10)
         
-        # tf2 listener
+        # tf2 listener and broadcaster
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
+        
+        from tf2_ros import TransformBroadcaster
+        self._tf_broadcaster = TransformBroadcaster(self)
         
         # Services
         self._demo_start_client = self.create_client(Trigger, '/demonstration/start')
@@ -223,6 +226,113 @@ class ArcherBridgeNode(Node):
                 self._explorer_enable_pub.publish(msg)
                 
                 self._active_action = None
+                
+            elif act_type == "patrol":
+                self.get_logger().info(">>> QUEUE: Patrol triggered - queueing all rooms for sequential navigation")
+                self._active_action = None
+                
+                patrol_actions = []
+                for room_name, coords in self._locations.items():
+                    patrol_actions.append({
+                        "type": "nav_goal",
+                        "coordinates": coords
+                    })
+                
+                # Insert at the front of the queue so patrol starts immediately
+                self._action_queue = patrol_actions + self._action_queue
+                
+            elif act_type == "dance":
+                self.get_logger().info(">>> QUEUE: Dance triggered - let's bust a move!")
+                self._active_action = None
+                
+                dance_actions = [
+                    {"type": "cmd_vel", "linear": 0.0, "angular": 2.0, "duration": 1.0},
+                    {"type": "cmd_vel", "linear": 0.0, "angular": -2.0, "duration": 1.0},
+                    {"type": "cmd_vel", "linear": 0.5, "angular": 0.0, "duration": 0.5},
+                    {"type": "cmd_vel", "linear": -0.5, "angular": 0.0, "duration": 0.5},
+                    {"type": "cmd_vel", "linear": 0.0, "angular": 4.0, "duration": 1.5},
+                    {"type": "stop"}
+                ]
+                self._action_queue = dance_actions + self._action_queue
+
+            elif act_type == "return_to_dock":
+                self.get_logger().info(">>> QUEUE: Return to dock triggered")
+                self._active_action = None
+                if "dock" in self._locations:
+                    self._action_queue.insert(0, {
+                        "type": "nav_goal",
+                        "coordinates": self._locations["dock"]
+                    })
+                
+            elif act_type == "spin":
+                self.get_logger().info(">>> QUEUE: Spin command triggered")
+                self._active_action = None
+                self._action_queue.insert(0, {
+                    "type": "rotate",
+                    "angular": 1.0,
+                    "duration": 6.28
+                })
+                
+            elif act_type == "dance":
+                self.get_logger().info(">>> QUEUE: Dance command triggered")
+                self._active_action = None
+                dance_moves = [
+                    {"type": "rotate", "angular": 1.5, "duration": 1.0},
+                    {"type": "rotate", "angular": -1.5, "duration": 2.0},
+                    {"type": "rotate", "angular": 1.5, "duration": 1.0},
+                    {"type": "move", "linear": 0.5, "duration": 1.0},
+                    {"type": "move", "linear": -0.5, "duration": 1.0}
+                ]
+            elif act_type in ["introduce", "about_me", "tell_me_about_yourself"]:
+                self.get_logger().info(">>> QUEUE: Introduce action triggered! Archer presenting details.")
+                self._active_action = None
+                
+                intro_text = (
+                    "Hello! I am Archer, an advanced autonomous humanoid robot platform designed for environment exploration, "
+                    "semantic mapping, object perception, and intelligent voice/AI-driven task execution. "
+                    "I am built on ROS 2 Jazzy with Gazebo Harmonic simulation, equipped with stereo vision (cuVSLAM), "
+                    "360-degree LiDAR sensors, YOLOv8 vision perception, and Nav2 navigation."
+                )
+                self.get_logger().info(f"[ARCHER INTRO]: {intro_text}")
+                
+                # Write introduction to robot status file so UI/AI host can display/speak it
+                try:
+                    status_path = os.path.join(self._sim_path, "robot_status.json")
+                    status_data = {}
+                    if os.path.exists(status_path):
+                        with open(status_path, "r") as f:
+                            status_data = json.load(f)
+                    status_data["last_speech"] = intro_text
+                    status_data["introduction"] = {
+                        "name": "Archer",
+                        "type": "Autonomous Humanoid Robot Platform",
+                        "architecture": "ROS 2 Jazzy + Gazebo Harmonic",
+                        "perception": ["360° LiDAR", "YOLOv8 Object Detection", "Stereo cuVSLAM"],
+                        "navigation": "Nav2 + Semantic Mapper + Autonomous Explorer",
+                        "status": "Operational"
+                    }
+                    with open(status_path, "w") as f:
+                        json.dump(status_data, f, indent=2)
+                except Exception as e:
+                    self.get_logger().error(f"Failed to write intro status: {e}")
+
+                intro_moves = [
+                    {"type": "rotate", "angular": 1.5, "duration": 1.5},
+                    {"type": "rotate", "angular": -1.5, "duration": 1.5},
+                    {"type": "stop"}
+                ]
+                self._action_queue = intro_moves + self._action_queue
+
+            elif act_type == "clear_queue":
+                self.get_logger().info(">>> QUEUE: Clear queue triggered")
+                self._action_queue = []
+                self._active_action = None
+                self._vel_pub.publish(Twist()) # Stop moving
+                
+                # Disable explorer if active
+                msg = Bool()
+                msg.data = False
+                self._explorer_enable_pub.publish(msg)
 
             elif act_type == "start_recording":
                 self.get_logger().info(">>> QUEUE: Start LBD recording")
@@ -340,6 +450,19 @@ class ArcherBridgeNode(Node):
         self._current_x = x
         self._current_y = y
 
+        # Broadcast perfect odom -> base_link TF using Gazebo's wheel odometry
+        # This replaces cuVSLAM's drifting TF and Gazebo's built-in TF which crashes Harmonic
+        if hasattr(self, '_tf_broadcaster'):
+            from geometry_msgs.msg import TransformStamped
+            tf_msg = TransformStamped()
+            tf_msg.header.stamp = msg.header.stamp
+            tf_msg.header.frame_id = "odom"
+            tf_msg.child_frame_id = "base_link"
+            tf_msg.transform.translation.x = msg.pose.pose.position.x
+            tf_msg.transform.translation.y = msg.pose.pose.position.y
+            tf_msg.transform.translation.z = msg.pose.pose.position.z
+            tf_msg.transform.rotation = msg.pose.pose.orientation
+            self._tf_broadcaster.sendTransform(tf_msg)
         
         # Determine current room based on locations.json bounding boxes
         current_room = "unknown"

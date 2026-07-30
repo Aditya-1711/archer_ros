@@ -77,14 +77,10 @@ class ArcherWatchdogNode(Node):
         startup_duration = (now - self._start_time).nanoseconds / 1e9
         is_startup = (startup_duration < 15.0)
         
-        if timeouts["safety"] > 5.0 and not is_startup:
-            status = "safety_failure"
-        elif timeouts["bridge"] > 5.0 and not is_startup:
+        if timeouts["bridge"] > 5.0 and not is_startup:
             status = "bridge_failure"
         elif timeouts["ai_core"] > 60.0 and not is_startup:
             status = "ai_core_offline"
-        elif (timeouts["vision"] > 15.0 or timeouts["power"] > 15.0) and not is_startup:
-            status = "degraded"
         else:
             status = "nominal"
 

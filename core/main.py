@@ -272,7 +272,6 @@ def run_pipeline_step(
             
         elif action_type == "status":
             speech_output = f"System status nominal. Battery at {battery}%. Core temperature at {cpu_temp} degrees Celsius. Current location is {curr_location}."
-            action_queue.append({"type": "stop"})
             
         elif action_type == "move":
             direction = "forward" if reflex_cmd["linear"] > 0 else "backward"
@@ -329,7 +328,6 @@ def run_pipeline_step(
                     speech_output = "Failed to log data to memory bank."
             else:
                 speech_output = "No information provided to remember."
-            action_queue.append({"type": "stop"})
             
         elif action_type == "learn_routine":
             r_name = reflex_cmd.get("routine_name", "")
@@ -345,7 +343,6 @@ def run_pipeline_step(
                     speech_output = f"Failed to save routine {r_name}."
             else:
                 speech_output = "Routine description incomplete."
-            action_queue.append({"type": "stop"})
             
         elif action_type == "execute_routine":
             r_name = reflex_cmd.get("routine_name", "")
@@ -388,7 +385,6 @@ def run_pipeline_step(
                     action_queue.append({"type": "stop"})
             else:
                 speech_output = f"Routine {r_name} not found in database."
-                action_queue.append({"type": "stop"})
                 
         elif action_type == "start_recording":
             speech_output = "Initiating demonstration recording."
@@ -413,9 +409,8 @@ def run_pipeline_step(
                 speech_output = f"Timer set for {duration} seconds."
             else:
                 speech_output = "Invalid timer duration."
-            action_queue.append({"type": "stop"})
                 
-        if speech_output and action_queue:
+        if speech_output:
             logger.info(f"[Reflex] Bypassing LLM. Speech: '{speech_output}', Actions: {[a.get('type') for a in action_queue]}")
             tts.speak(speech_output)
             full_response = {
@@ -482,7 +477,7 @@ HIERARCHICAL PLANNING:
 GENERAL QUESTIONS:
 - If the user asks a general question (e.g., about facts, science, or yourself), answer it precisely, factually, and in 1-2 sentences.
 - Maintain your robotic persona. Keep answers very brief.
-- If the user asks about the weather, you MUST respond by stating the current "Ambient Room Temperature" from your hardware telemetry, explaining that outside telemetry is unavailable.
+- If the user asks about the weather, you MUST respond using the weather information provided in the LIVE WEB DATA section below. Do NOT say outside telemetry is unavailable.
 
 MEMORY SYSTEM & HARDWARE STATUS:
 - You have a long-term memory bank.
@@ -517,6 +512,7 @@ Location: {curr_location}
 Battery: {battery}%
 Core Temperature: {cpu_temp} C
 Ambient Room Temperature: {ambient_temp} C
+Current Timestamp: {current_time}
 
 CONTEXT - LONG-TERM MEMORY:
 {memory_str}
@@ -526,17 +522,19 @@ CONTEXT - LEARNED ROUTINES:
 
 CRITICAL INSTRUCTION: You must now respond to the user's input.
 Answer the user's question directly and concisely in ONE sentence, based ONLY on the context above.
-DO NOT copy headers like "Hardware Status" or "Memory Bank".
-DO NOT output bullet points or lists.
-Just provide the final conversational answer.
-Your identity is a robotic control intelligence.
+If the answer is found in the MEMORY BANK or WEB DATA, output the answer. Do NOT reference the source.
+If asked about a location of an object, use the MEMORY BANK. Do NOT output the robot's physical location unless specifically asked about the robot itself.
 """
+    import datetime
+    current_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     system_prompt = system_prompt.format(
         system_spec=system_spec,
         curr_location=curr_location,
         battery=battery,
         cpu_temp=cpu_temp,
         ambient_temp=ambient_temp,
+        current_time=current_time_str,
         memory_str=memory_str,
         routines_str=routines_str
     )
@@ -596,6 +594,8 @@ Your identity is a robotic control intelligence.
                 "angular": legacy_cmd["angular"],
                 "duration": legacy_cmd.get("duration", 2.0)
             }
+        elif legacy_cmd["action"] == "stop":
+            structured_action = {"type": "stop"}
         # Priority 4: Exploration
         elif "explore" in s.lower() or legacy_cmd["action"] == "explore":
             structured_action = {"type": "explore"}
@@ -657,7 +657,7 @@ Your identity is a robotic control intelligence.
     action_queue = filtered_queue
 
     if not action_queue:
-        action_queue.append({"type": "stop"})
+        pass # action_queue.append({"type": "stop"})
 
     full_response = {
         "speech": speech_output,

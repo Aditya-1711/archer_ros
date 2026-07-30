@@ -136,8 +136,8 @@ _LEARN_ROUTINE = re.compile(r'\b(learn|save|record)\b\s+routine\s+(.*?)\s*(?:[=:
 _EXPLORE = re.compile(r"\b(explore|mapping|map\s+the\s+area|start\s+mapping|run\s+slam|scan)\b", re.IGNORECASE)
 _EXECUTE_ROUTINE = re.compile(r"\b(execute|run|start)\s+routine\s+(.+)", re.IGNORECASE)
 _TIMER = re.compile(r"\b(?:set|start)\b.*?(?:a\s+)?timer.*?\bfor\b\s+(\d+)\s*(second|minute|hour)s?", re.IGNORECASE)
-_WEATHER = re.compile(r"\b(?:what\s+is|whats)\s+the\s+weather\b(?:\s+in\s+(.+))?", re.IGNORECASE)
-_SEARCH = re.compile(r"\b(?:search\s+for|who\s+is|what\s+is)\s+(?!the\s+weather|your\s+status)(.+)", re.IGNORECASE)
+_WEATHER = re.compile(r"\b(?:what\s+is|whats)\s+the\s+weather\b(?:\s+in\s+(.+))?|\bweather\b", re.IGNORECASE)
+_SEARCH = re.compile(r"\b(?:search\s+for|who\s+is|what\s+is)\s+(?!the\s+weather|your\s+status|the\s+time|the\s+date|time|date)(.+)", re.IGNORECASE)
 
 
 class CommandParser:

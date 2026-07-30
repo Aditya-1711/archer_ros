@@ -70,6 +70,26 @@ Visualization Manager:
         Value: /archer/camera/image_raw
       Enabled: true
       Name: Image
+    - Class: rviz_default_plugins/Image
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /yolo/image
+      Enabled: true
+      Name: YOLO Image
+    - Class: rviz_default_plugins/Odometry
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /visual_slam/tracking/odometry
+      Enabled: true
+      Name: cuVSLAM Odometry
+      Color: 255; 255; 0
+      Keep: 100
     - Class: rviz_default_plugins/Map
       Color Scheme: costmap
       Topic:
@@ -127,6 +147,26 @@ Visualization Manager:
         Value: /archer/semantic_markers
       Enabled: true
       Name: Semantic Mapping
+    - Class: rviz_default_plugins/Image
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /yolo/image
+      Enabled: true
+      Name: YOLO Vision
+    - Class: rviz_default_plugins/Odometry
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /visual_slam/tracking/odometry
+      Color: 255; 0; 0
+      Enabled: true
+      Keep: 1000
+      Name: cuVSLAM Trajectory
   Enabled: true
   Global Options:
     Background Color: 10; 14; 23

@@ -30,6 +30,8 @@ setup(
             "random_explorer = archer_bridge.random_explorer:main",
             "semantic_mapper_node = archer_bridge.semantic_mapper_node:main",
             "demonstration_node = archer_bridge.demonstration_node:main",
+            # cuVSLAM visual odometry (requires PyCuVSLAM pip wheel)
+            "cuvslam_node = archer_bridge.cuvslam_node:main",
         ],
     },
 )

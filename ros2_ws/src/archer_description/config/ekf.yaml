@@ -39,3 +39,18 @@ ekf_filter_node:
     imu0_relative: true
     imu0_queue_size: 10
     imu0_remove_gravitational_acceleration: true
+
+    # cuVSLAM Visual Odometry (fused with IMU inside cuVSLAM before arriving here)
+    # Fuse: X, Y position + yaw.  Ignore Z (2D robot), roll, pitch.
+    # Activated only when isaac_ros_visual_slam is running (use_cuvslam:=true).
+    odom1: /visual_slam/tracking/odometry
+    odom1_config: [true,  true,  false,
+                   false, false, false,
+                   true,  true,  false,
+                   false, false, true,
+                   false, false, false]
+    odom1_queue_size: 10
+    odom1_nodelay: false
+    odom1_differential: false
+    odom1_relative: false
+

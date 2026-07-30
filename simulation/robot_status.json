@@ -1,1 +1,1 @@
-{"x": -0.0, "y": -0.0, "yaw": -0.0, "location": "living room", "battery": 100.0}
+{"x": -0.26, "y": 1.6, "yaw": 1.024, "location": "living room", "battery": 100.0, "watchdog_status": "nominal", "watchdog_timeouts": {"ai_core": 0.2, "bridge": 0.1, "vision": 44.8, "safety": 44.8, "power": 44.8}}
